@@ -11,7 +11,7 @@ A aplicação gerencia o ciclo de vida completo de produtos, desde o cadastro de
 A interface de usuário (UI) para este projeto foi desenvolvida em React, utilizando uma arquitetura moderna de "guias" (rotas) e componentes. A UI consome esta API para fornecer uma experiência de usuário completa.
 
 **➡️ [Acesse o Repositório do Frontend aqui](https://github.com/jovvaz/control-system-frontend)**
-*(Substitua `jovvaz` pelo seu nome de utilizador do GitHub se for diferente)*
+
 
 ---
 
