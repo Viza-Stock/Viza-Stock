@@ -1,63 +1,89 @@
+# 🚀 Control System (Backend API)
 
-# Estoque Eficiente - Controle de Estoque para Pequenas Fábricas
+Este é o repositório do **Backend (API)** do projeto Control System, um sistema completo de controle de estoque e produção de produtos, construído com Spring Boot.
 
-Transformando experiência de chão de fábrica em um software que previne perdas e otimiza a produção.
+A aplicação gerencia o ciclo de vida completo de produtos, desde o cadastro de matérias-primas até a execução de ordens de produção complexas, com validação de estoque em tempo real.
 
-## O Problema Real
+---
 
-Este projeto não nasceu de uma ideia acadêmica, mas da realidade do chão de fábrica. Tendo trabalhado em pequenos comércios e fábricas de produção própria, onde as margens de lucro são apertadas, testemunhei em primeira mão como um simples erro de comunicação ou uma contagem de estoque imprecisa pode ser um grande prejuízo.
+### 🎨 Frontend (Interface do Usuário)
 
-Uma produção parada por falta de matéria-prima ou um pedido atrasado por falta de um componente são problemas reais que afetam diretamente o faturamento e a credibilidade do negócio. A falta de uma ferramenta simples e focada na relação entre o estoque e o fluxo de produção é uma dor constante para o pequeno produtor.
+A interface de usuário (UI) para este projeto foi desenvolvida em React, utilizando uma arquitetura moderna de "guias" (rotas) e componentes. A UI consome esta API para fornecer uma experiência de usuário completa.
 
-**O Estoque Eficiente nasceu para resolver essa dor.**
+**➡️ [Acesse o Repositório do Frontend aqui](https://github.com/jovvaz/control-system-frontend)**
+*(Substitua `jovvaz` pelo seu nome de utilizador do GitHub se for diferente)*
 
-## Funcionalidades Principais (Features)
+---
 
-Este projeto é um backend de API completo que gerencia a complexa relação entre o estoque e as ordens de produção.
+## 🌟 Funcionalidades Principais (Atualizações)
 
-### 1\. Gestão de Estoque (`EstoqueService`)
+Este projeto implementa um conjunto robusto de funcionalidades de nível empresarial:
 
-  * **Cadastro de Produtos:** Permite o cadastro de `Produtos`, que podem ser de dois tipos: `MATERIA_PRIMA` (ex: Açúcar, Cacau) ou `PRODUTO_ACABADO` (ex: Barra de Chocolate).
-  * **Movimentação de Estoque:** Métodos transacionais para `darEntrada` e `darBaixa` no estoque, garantindo a integridade dos dados no banco.
-  * **Consultas:** Busca de produtos individuais por ID e listagem de todos os produtos cadastrados.
+* **Gestão de Produtos:**
+    * Cadastro de **Matérias-Primas** e **Produtos Acabados**.
+    * Uso de **IDs customizados** (ex: "MP-001", "PA-001") com validação de unicidade no banco de dados.
+    * Unidades de medida controladas (kg, L, un) para garantir a integridade dos dados.
 
-### 2\. Lógica de Produção (`ProducaoService`)
+* **Ficha Técnica (Receitas):**
+    * Criação de fichas técnicas complexas no momento do cadastro do Produto Acabado.
+    * Associação de múltiplas matérias-primas e suas respectivas quantidades a um único produto (relação `@OneToMany`).
 
-  * **Ficha Técnica (A "Receita"):** Permite a criação de uma `FichaTecnica` para cada `PRODUTO_ACABADO`, especificando exatamente quais `MATERIA_PRIMA`s e quais quantidades são necessárias para produzir uma unidade.
-  * **Verificação de Viabilidade:** A "killer feature" do projeto. Antes de iniciar uma produção, este método (`verificarViabilidadeProducao`) calcula o total de matéria-prima necessária (ex: 500 barras \* 0.1kg de açúcar) e compara com o estoque real. Se faltar um único grama, a produção é interrompida com um erro claro, **prevenindo paradas no meio do processo**.
-  * **Execução de Ordem de Produção:** Um método transacional (`@Transactional`) que, após confirmar a viabilidade, executa a ordem de produção completa:
-    1.  Dá baixa (consome) a quantidade exata de todas as matérias-primas do estoque.
-    2.  Dá entrada (cria) a quantidade solicitada de produtos acabados no estoque.
+* **Controle de Estoque:**
+    * Registro de **Entrada de Estoque** (Compra) para matérias-primas e produtos.
+    * Baixa automática de estoque de componentes durante a produção.
 
-### 3\. Arquitetura e Tecnologia
+* **Lógica de Produção (A funcionalidade principal):**
+    * Um endpoint (`/api/producao/executar`) que simula uma ordem de produção.
+    * **Verificação de Viabilidade:** O sistema verifica se há estoque suficiente de *todas* as matérias-primas necessárias antes de autorizar a produção.
+    * **Mensagens de Erro Claras:** Retorna erros específicos (ex: "Estoque insuficiente para Açúcar. Necessário: 10, Disponível: 5") que são exibidos na UI.
+    * **Transação Atômica:** Se a produção for viável, o sistema automaticamente dá baixa (`darBaixa`) no estoque das matérias-primas e adiciona (`darEntrada`) o produto acabado ao estoque.
 
-  * **Backend:** Spring Boot.
-  * **Banco de Dados:** PostgreSQL.
-  * **Persistência:** Spring Data JPA (usando o padrão de Repositórios).
-  * **Arquitetura:** Design em Camadas (`Service`/`Repository`) para separação clara de responsabilidades (Regras de Negócio vs. Acesso a Dados).
+* **CRUD Seguro (Delete):**
+    * Funcionalidade de **Deletar** produtos (`DELETE /api/produtos/{id}`).
+    * **Regra de Negócio Crítica:** O sistema impede que uma Matéria-Prima seja deletada se ela estiver em uso em qualquer Ficha Técnica, protegendo a integridade dos dados do sistema.
 
------
+---
 
-## A Saga da Refatoração (A História deste Repositório)
+## 🛠️ Tecnologias (Backend)
 
-Este repositório tem uma história. O projeto nasceu como uma aplicação desktop (NetBeans/Java Swing) e foi **completamente migrado para um backend moderno com Spring Boot.**
+* **Java 17**
+* **Spring Boot 3+**
+* **Spring Data JPA (Hibernate):** Para persistência de dados e mapeamento objeto-relacional.
+* **Banco H2 (Em memória):** Utilizado para um ambiente de desenvolvimento rápido e testes.
+* **Maven:** Para gerenciamento de dependências.
 
-O processo envolveu uma refatoração completa, resolvendo diversos desafios reais de desenvolvimento:
+---
 
-1.  **Git Hell:** Correção de um repositório com históricos conflitantes (`unrelated histories`), estrutura de pastas aninhada incorretamente e conflitos entre branches `master` e `main`. O repositório foi limpo e reestruturado do zero (`git init`, `git push --force`) para refletir um projeto profissional.
-2.  **Spring DI:** Resolução de erros de Injeção de Dependência (`bean not found`) através da configuração correta de `@Service`, `@Repository` e `@EnableJpaRepositories`.
-3.  **JPA Hell:** Debug e correção de erros clássicos do Hibernate/JPA, incluindo:
-      * **`LazyInitializationException`:** Resolvido usando `@Transactional` nos métodos de serviço para manter a sessão do banco de dados aberta.
-      * **Erro de Coluna "Fantasma":** Correção de um descompasso entre o nome no Java (`quantidadeEmEstoque`) e no banco (`quant_em_estoque`), ajustado com `ddl-auto=create` e a anotação `@Column`.
-      * **Erro de Palavra Reservada:** Correção do campo `desc` (uma palavra reservada do SQL) para `@Column(name = "descricao")`.
+## 🚀 Como Executar (Localmente)
 
-O resultado final é o que você vê agora: um projeto limpo, funcional, profissional e com uma história de resiliência.
+**Requisitos:**
+* JDK 17 ou superior
+* Maven 3+
+* IntelliJ IDEA (Recomendado)
 
-## Como Rodar Localmente
-
+**Backend (Este Repositório):**
 1.  Clone este repositório: `git clone https://github.com/jovvaz/Control-System.git`
-2.  Crie um banco de dados PostgreSQL local (ex: `controle_estoque_db`).
-3.  Abra o projeto em sua IDE (IntelliJ).
-4.  Vá até `src/main/resources/application.properties` e **altere** `spring.datasource.username` e `spring.datasource.password` para os seus dados.
-5.  Rode a classe `ControlSystemApplication.java`.
-6.  O script de teste (`CommandLineRunner`) será executado automaticamente no console, simulando o cadastro de produtos e duas ordens de produção (uma com sucesso, outra com falha proposital).
+2.  Abra o projeto no IntelliJ IDEA.
+3.  Aguarde o Maven baixar todas as dependências.
+4.  Execute a classe principal `ControlSystemApplication.java`.
+5.  O servidor estará rodando em `http://localhost:8080`.
+
+**Frontend (Repositório Separado):**
+1.  Siga as instruções de setup no [repositório do frontend](https://github.com/jovvaz/control-system-frontend).
+2.  Inicie o frontend (geralmente com `npm run dev`).
+3.  Acesse `http://localhost:5173` (ou a porta indicada) no seu navegador para usar a aplicação.
+
+---
+
+## 🔌 API Endpoints (Principais)
+
+A URL base é `http://localhost:8080`
+
+| Verbo | Endpoint | Descrição |
+| :--- | :--- | :--- |
+| `GET` | `/api/produtos` | Lista todos os produtos (MPs e PAs). |
+| `POST`| `/api/produtos` | Cria uma nova Matéria-Prima (simples). |
+| `DELETE`| `/api/produtos/{id}` | Deleta um produto (com validação de segurança). |
+| `POST` | `/api/produtos/entrada` | Registra uma entrada de estoque (compra). |
+| `POST` | `/api/producao/produto-acabado` | Cria um Produto Acabado E sua Ficha Técnica (receita). |
+| `POST` | `/api/producao/executar` | **Executa uma ordem de produção** (valida estoque, dá baixas e entradas). |
