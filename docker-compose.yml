@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: viza-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8080
+      # Permitir CORS para o frontend local
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persistir banco H2 (arquivo) fora do container
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: viza-frontend
+    environment:
+      # Aponta para o backend exposto na máquina host
+      VITE_API_URL: http://localhost:8080/api
+    ports:
+      - "5175:5175"
+    volumes:
+      # Hot reload: monta o projeto no container
+      - ./:/app
+      # Evitar sobrescrever node_modules do container
+      - /app/node_modules
+    command: sh -c "npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  default:
+    name: viza-net

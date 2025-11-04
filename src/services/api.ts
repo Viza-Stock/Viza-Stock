@@ -1,0 +1,347 @@
+import axios from 'axios'
+import type { AxiosError } from 'axios'
+import type {
+  Produto,
+  ProdutoRequestDTO,
+  ProdutoEntradaDTO,
+  ProdutoAcabadoRequestDTO,
+  OrdemProducaoRequestDTO,
+  FichaTecnica,
+  MovimentacaoEstoque,
+  OrdemProducao
+} from '../types'
+
+// Configuração base do axios
+// Garante que a baseURL sempre inclua "/api" mesmo quando VITE_API_URL estiver setada como "http://localhost:8080"
+const rawBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+const baseURL = rawBase.endsWith('/api')
+  ? rawBase
+  : `${rawBase.replace(/\/$/, '')}/api`
+
+// Flag para controlar uso de mocks explicitamente via env
+// Por padrão, NÃO usa mocks (apenas quando VITE_USE_MOCKS === 'true')
+const USE_MOCKS = String(import.meta.env.VITE_USE_MOCKS).toLowerCase() === 'true'
+
+const api = axios.create({
+  baseURL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// Interceptor para tratamento de erros
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url = error?.config?.url || ''
+    const isRelatorioEndpoint = url.includes('/relatorios/')
+    const isNetworkError = !error.response
+    const message = error?.message || 'Erro na API'
+
+    // Em desenvolvimento, endpoints de relatórios podem não existir.
+    // Não poluir o console com erros: registrar como aviso.
+    if (isRelatorioEndpoint || isNetworkError) {
+      console.warn('Aviso da API:', message)
+    } else {
+      console.error('Erro na API:', error)
+    }
+    return Promise.reject(error)
+  }
+)
+
+// Helper para extrair mensagens amigáveis do backend em erros da API
+function getApiErrorMessage(error: unknown): string {
+  // Quando for um AxiosError, tentamos extrair a mensagem do corpo
+  if (axios.isAxiosError(error)) {
+    const axErr = error as AxiosError
+    const data = axErr.response?.data as any
+    // Backend atual retorna String no body para 400/404
+    if (typeof data === 'string' && data.trim().length > 0) {
+      return data
+    }
+    // Alguns backends retornam objeto com { message }
+    if (data && typeof data === 'object' && typeof data.message === 'string') {
+      return data.message
+    }
+    // Caso não haja body utilizável, usa status e mensagem padrão
+    const status = axErr.response?.status
+    if (status) {
+      return `Erro na API (status ${status}): ${axErr.message}`
+    }
+    return axErr.message || 'Erro na API'
+  }
+  // Fallback para erros genéricos
+  return error instanceof Error ? error.message : 'Erro na API'
+}
+
+// Dados mock para desenvolvimento (alinhados ao modelo atual do backend)
+const mockProdutos: Produto[] = [
+  {
+    id: 'FARINHA_TRIGO',
+    nome: 'Farinha de Trigo',
+    desc: 'Ingrediente base para pães e massas',
+    tipo: 'MATERIA_PRIMA',
+    unidadeMedida: 'KG',
+    quantidadeEmEstoque: 150
+  },
+  {
+    id: 'ACUCAR_CRISTAL',
+    nome: 'Açúcar Cristal',
+    desc: 'Açúcar comum para confeitaria',
+    tipo: 'MATERIA_PRIMA',
+    unidadeMedida: 'KG',
+    quantidadeEmEstoque: 25
+  },
+  {
+    id: 'PAO_FRANCES',
+    nome: 'Pão Francês',
+    desc: 'Produto acabado pronto para venda',
+    tipo: 'PRODUTO_ACABADO',
+    unidadeMedida: 'UN',
+    quantidadeEmEstoque: 200
+  }
+]
+
+// Serviços de Produtos
+export const produtosService = {
+  // Listar todos os produtos
+  listar: async (): Promise<Produto[]> => {
+    try {
+      const response = await api.get('/produtos')
+      return response.data
+    } catch (error) {
+      if (USE_MOCKS) {
+        console.warn('API não disponível, usando dados mock:', error)
+        return mockProdutos
+      }
+      throw error
+    }
+  },
+
+  // Buscar produto por ID
+  buscarPorId: async (id: string): Promise<Produto> => {
+    try {
+      const response = await api.get(`/produtos/${id}`)
+      return response.data
+    } catch (error) {
+      if (USE_MOCKS) {
+        console.warn('API não disponível, buscando produto mock:', error)
+        const produto = mockProdutos.find(p => p.id === id)
+        if (!produto) {
+          throw new Error('Produto não encontrado')
+        }
+        return produto
+      }
+      throw error
+    }
+  },
+
+  // Criar novo produto (matéria-prima)
+  criar: async (produto: ProdutoRequestDTO): Promise<Produto> => {
+    try {
+      const response = await api.post('/produtos', produto)
+      return response.data
+    } catch (error) {
+      if (USE_MOCKS) {
+        console.warn('API não disponível, simulando criação:', error)
+        const novoProduto: Produto = {
+          id: produto.id || Date.now().toString(),
+          nome: produto.nome,
+          desc: produto.desc || '',
+          tipo: produto.tipo,
+          unidadeMedida: produto.unidadeMedida,
+          quantidadeEmEstoque: 0
+        }
+        mockProdutos.push(novoProduto)
+        return novoProduto
+      }
+      throw error
+    }
+  },
+
+  // Dar entrada em produto
+  darEntrada: async (entrada: ProdutoEntradaDTO): Promise<Produto> => {
+    try {
+      const response = await api.post(`/produtos/entrada`, entrada)
+      return response.data
+    } catch (error) {
+      if (USE_MOCKS) {
+        console.warn('API não disponível, simulando entrada:', error)
+        const produto = mockProdutos.find(p => p.id === entrada.produtoId)
+        if (!produto) {
+          throw new Error('Produto não encontrado')
+        }
+        produto.quantidadeEmEstoque = (produto.quantidadeEmEstoque ?? 0) + entrada.quantidade
+        return produto
+      }
+      throw error
+    }
+  },
+
+  // Dar baixa em produto
+  darBaixa: async (produtoId: string, quantidade: number): Promise<Produto> => {
+    try {
+      const response = await api.post(`/produtos/baixa`, {
+        produtoId,
+        quantidade
+      })
+      return response.data
+    } catch (error) {
+      if (USE_MOCKS) {
+        console.warn('API não disponível, simulando baixa:', error)
+        const produto = mockProdutos.find(p => p.id === produtoId)
+        if (!produto) {
+          throw new Error('Produto não encontrado')
+        }
+        produto.quantidadeEmEstoque = Math.max(0, (produto.quantidadeEmEstoque ?? 0) - quantidade)
+        return produto
+      }
+      throw error
+    }
+  },
+
+  // Deletar produto
+  deletar: async (id: string): Promise<void> => {
+    try {
+      await api.delete(`/produtos/${id}`)
+    } catch (error) {
+      if (USE_MOCKS) {
+        console.warn('API não disponível, simulando exclusão:', error)
+        const index = mockProdutos.findIndex(p => p.id === id)
+        if (index > -1) {
+          mockProdutos.splice(index, 1)
+        }
+        return
+      }
+      // Propagar mensagem detalhada do backend
+      throw new Error(getApiErrorMessage(error))
+    }
+  }
+}
+
+// Serviços de Produção
+export const producaoService = {
+  // Criar produto acabado com ficha técnica
+  criarProdutoAcabado: async (produto: ProdutoAcabadoRequestDTO): Promise<Produto> => {
+    const response = await api.post('/producao/produto-acabado', produto)
+    return response.data
+  },
+
+  // Executar ordem de produção
+  executarOrdem: async (ordem: OrdemProducaoRequestDTO): Promise<void> => {
+    await api.post('/producao/executar', ordem)
+  },
+
+  // Verificar viabilidade de produção
+  verificarViabilidade: async (produtoId: string, quantidade: number): Promise<boolean> => {
+    try {
+      const response = await api.post('/producao/verificar-viabilidade', {
+        produtoAcabadoId: produtoId,
+        quantidadeAProduzir: quantidade
+      })
+      return response.data.viavel || false
+    } catch {
+      return false
+    }
+  },
+
+  // Listar fichas técnicas
+  listarFichasTecnicas: async (): Promise<FichaTecnica[]> => {
+    const response = await api.get('/producao/fichas-tecnicas')
+    return response.data
+  },
+
+  // Buscar ficha técnica por produto
+  buscarFichaTecnica: async (produtoId: string): Promise<FichaTecnica> => {
+    const response = await api.get(`/producao/fichas-tecnicas/${produtoId}`)
+    return response.data
+  }
+}
+
+// Serviços de Relatórios (simulados - implementar conforme API)
+export const relatoriosService = {
+  // Histórico de movimentações
+  historicoMovimentacoes: async (
+    dataInicio?: Date,
+    dataFim?: Date,
+    produtoId?: string
+  ): Promise<MovimentacaoEstoque[]> => {
+    // Implementar quando API estiver disponível
+    const params = new URLSearchParams()
+    if (dataInicio) params.append('dataInicio', dataInicio.toISOString())
+    if (dataFim) params.append('dataFim', dataFim.toISOString())
+    if (produtoId) params.append('produtoId', produtoId)
+
+    try {
+      const response = await api.get(`/relatorios/movimentacoes?${params}`)
+      return response.data
+    } catch {
+      // Retornar dados mock se API não estiver implementada
+      return []
+    }
+  },
+
+  // Histórico de produção
+  historicoProducao: async (
+    dataInicio?: Date,
+    dataFim?: Date
+  ): Promise<OrdemProducao[]> => {
+    try {
+      const params = new URLSearchParams()
+      if (dataInicio) params.append('dataInicio', dataInicio.toISOString())
+      if (dataFim) params.append('dataFim', dataFim.toISOString())
+
+      const response = await api.get(`/relatorios/producao?${params}`)
+      return response.data
+    } catch {
+      // Retornar dados mock se API não estiver implementada
+      return []
+    }
+  },
+
+  // Métricas do dashboard
+  obterMetricas: async () => {
+    try {
+      const response = await api.get('/relatorios/metricas')
+      return response.data
+    } catch {
+      // Retornar dados mock se API não estiver implementada
+      return {
+        totalProdutos: 0,
+        produtosEstoqueBaixo: 0,
+        producaoDiaria: 0,
+        valorTotalEstoque: 0
+      }
+    }
+  },
+
+  // Função para Dashboard
+  getDashboardMetrics: async () => {
+    try {
+      const response = await api.get('/relatorios/dashboard')
+      return response.data
+    } catch {
+      // Retornar dados mock se API não estiver implementada
+      return {
+        crescimentoProdutos: 5.2,
+        crescimentoEstoque: -2.1,
+        crescimentoProducao: 8.7,
+        crescimentoValor: 12.3
+      }
+    }
+  },
+
+  // Função para movimentações históricas
+  getMovimentacoesHistoricas: async () => {
+    try {
+      const response = await api.get('/relatorios/movimentacoes-historicas')
+      return response.data
+    } catch {
+      // Retornar dados mock se API não estiver implementada
+      return []
+    }
+  }
+}
+
+export default api

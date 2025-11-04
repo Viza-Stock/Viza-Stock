@@ -1,0 +1,25 @@
+# Geral
+.git
+.github
+.vscode
+.idea
+node_modules
+dist
+dist-ssr
+
+# Maven / Java
+target
+backend/target
+
+# Logs e caches
+logs
+*.log
+data/backups
+
+# OS / Editor
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

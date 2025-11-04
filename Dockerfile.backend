@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+
+# ===== Builder stage: compile Spring Boot app =====
+FROM maven:3.9-eclipse-temurin-21 AS builder
+
+WORKDIR /work
+
+# Copy project files
+COPY pom.xml .
+COPY backend/ ./backend/
+COPY .mvn/ .mvn/
+COPY mvnw mvnw
+
+# Copy any additional sources used by the build (if present)
+COPY backend/src/ ./backend/src/
+
+# Build the Spring Boot jar (skip tests for faster dev)
+RUN ./mvnw -q -DskipTests package && \
+    ls -lah target || true
+
+# ===== Runtime stage: run the Spring Boot app =====
+FROM eclipse-temurin:21-jre AS runtime
+
+WORKDIR /app
+
+# Copy the built jar from the builder stage
+COPY --from=builder /work/target/control-system-0.0.1-SNAPSHOT.jar /app/app.jar
+
+# Create data directory for H2 persistence (mounted via volume)
+RUN mkdir -p /app/data
+
+ENV SPRING_PROFILES_ACTIVE=dev \
+    SERVER_PORT=8080 \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+UseZGC"
+
+EXPOSE 8080
+
+ENTRYPOINT ["java","-jar","/app/app.jar"]
