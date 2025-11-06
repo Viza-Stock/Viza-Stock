@@ -12,7 +12,6 @@ import br.com.jovvaz.control_system.model.FichaTecnica;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 
 @RestController
