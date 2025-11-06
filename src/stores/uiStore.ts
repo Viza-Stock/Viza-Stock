@@ -17,7 +17,7 @@ interface UIStore {
   toggleTheme: () => void
 
   // Ações de notificações
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp'>) => void
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
   removeNotification: (id: string) => void
   clearNotifications: () => void
 
@@ -62,7 +62,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
     const newNotification: Notification = {
       ...notification,
       id: `notification-${Date.now()}-${Math.random()}`,
-      timestamp: new Date()
+      timestamp: new Date(),
+      read: false
     }
 
     set(state => ({

@@ -7,8 +7,6 @@ import {
   Database,
   Palette,
   Save,
-  Eye,
-  EyeOff,
   Mail,
   Phone,
   Building,
@@ -33,27 +31,12 @@ const perfilSchema = z.object({
   endereco: z.string().min(5, 'Endereço deve ter pelo menos 5 caracteres')
 })
 
-const senhaSchema = z.object({
-  senhaAtual: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  novaSenha: z.string().min(6, 'Nova senha deve ter pelo menos 6 caracteres'),
-  confirmarSenha: z.string().min(6, 'Confirmação deve ter pelo menos 6 caracteres')
-}).refine((data) => data.novaSenha === data.confirmarSenha, {
-  message: "Senhas não coincidem",
-  path: ["confirmarSenha"]
-})
-
 type PerfilForm = z.infer<typeof perfilSchema>
-type SenhaForm = z.infer<typeof senhaSchema>
 
 export const Configuracoes: React.FC = () => {
   const { theme, setTheme } = useUIStore()
   const { addNotification } = useNotifications()
   const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca' | 'notificacoes' | 'sistema' | 'usuarios'>('perfil')
-  const [showPasswords, setShowPasswords] = useState({
-    atual: false,
-    nova: false,
-    confirmar: false
-  })
   const { user } = useAuthStore()
   const canManageUsers = user?.systemRole === 'ROOT' || user?.systemRole === 'ADMINISTRADOR'
 
@@ -69,9 +52,6 @@ export const Configuracoes: React.FC = () => {
     }
   })
 
-  const senhaForm = useForm<SenhaForm>({
-    resolver: zodResolver(senhaSchema)
-  })
 
   const [configuracoes, setConfiguracoes] = useState({
     notificacoes: {
@@ -97,16 +77,6 @@ export const Configuracoes: React.FC = () => {
       title: 'Perfil atualizado',
       message: 'Suas informações foram atualizadas com sucesso!'
     })
-  }
-
-  const onSubmitSenha = (data: SenhaForm) => {
-    console.log('Alterando senha:', data)
-    addNotification({
-      type: 'success',
-      title: 'Senha alterada',
-      message: 'Sua senha foi alterada com sucesso!'
-    })
-    senhaForm.reset()
   }
 
   const salvarConfiguracoes = () => {
@@ -325,99 +295,10 @@ export const Configuracoes: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                </div>
               </div>
+            </div>
 
-              {/* Alterar Senha */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                <div className="flex items-center space-x-3 mb-6">
-                  <Shield className="w-6 h-6 text-blue-600" />
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Alterar Senha
-                  </h2>
-                </div>
-
-                <form onSubmit={senhaForm.handleSubmit(onSubmitSenha)} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Senha Atual
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...senhaForm.register('senhaAtual')}
-                        type={showPasswords.atual ? 'text' : 'password'}
-                        className="w-full pr-10 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswords(prev => ({ ...prev, atual: !prev.atual }))}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPasswords.atual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {senhaForm.formState.errors.senhaAtual && (
-                      <p className="text-red-500 text-sm mt-1">{senhaForm.formState.errors.senhaAtual.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Nova Senha
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...senhaForm.register('novaSenha')}
-                        type={showPasswords.nova ? 'text' : 'password'}
-                        className="w-full pr-10 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswords(prev => ({ ...prev, nova: !prev.nova }))}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPasswords.nova ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {senhaForm.formState.errors.novaSenha && (
-                      <p className="text-red-500 text-sm mt-1">{senhaForm.formState.errors.novaSenha.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Confirmar Nova Senha
-                    </label>
-                    <div className="relative">
-                      <input
-                        {...senhaForm.register('confirmarSenha')}
-                        type={showPasswords.confirmar ? 'text' : 'password'}
-                        className="w-full pr-10 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswords(prev => ({ ...prev, confirmar: !prev.confirmar }))}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPasswords.confirmar ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {senhaForm.formState.errors.confirmarSenha && (
-                      <p className="text-red-500 text-sm mt-1">{senhaForm.formState.errors.confirmarSenha.message}</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Alterar Senha</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
+              {/* Alterar Senha removido conforme solicitado */}
             </div>
           )}
 

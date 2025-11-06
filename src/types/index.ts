@@ -59,6 +59,8 @@ export interface Notification {
   title: string
   message: string
   timestamp: Date
+  // Indica se a notificação já foi visualizada
+  read: boolean
 }
 
 export interface DashboardMetrics {
