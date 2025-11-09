@@ -87,7 +87,7 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
   useEffect(() => {
     if (initialTemplate) {
       // Encontrar produto final pelo nome
-      const produtoFinal = produtos.find(p => p.nome.toLowerCase() === initialTemplate.nomeProduto.toLowerCase())
+      const produtoFinalEncontrado = produtos.find(p => p.nome.toLowerCase() === initialTemplate.nomeProduto.toLowerCase())
 
       const componentesMapeados = initialTemplate.componentes.map(c => {
         const prod = produtos.find(p => p.nome.toLowerCase() === c.nome.toLowerCase())
@@ -98,10 +98,11 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
       })
 
       reset({
-        produtoId: produtoFinal?.id || '',
+        // Garantir que o produto final do template seja um PRODUTO_ACABADO
+        produtoId: (produtoFinalEncontrado?.tipo === 'PRODUTO_ACABADO' ? produtoFinalEncontrado.id : '') || '',
         descricao: initialTemplate.descricao,
         quantidadeFinal: 1,
-        unidadeMedida: produtoFinal?.unidadeMedida || initialTemplate.unidadeProduto,
+        unidadeMedida: (produtoFinalEncontrado?.tipo === 'PRODUTO_ACABADO' ? produtoFinalEncontrado.unidadeMedida : initialTemplate.unidadeProduto),
         componentes: componentesMapeados.length > 0
           ? componentesMapeados
           : [{ produtoId: '', quantidade: 1 }]
@@ -109,8 +110,13 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
     }
   }, [initialTemplate, produtos, reset])
 
-  // Produtos disponíveis para seleção (excluindo o produto final)
-  const produtosDisponiveis = produtos.filter(p => p.id !== watchedProdutoId)
+  // Somente matérias-primas disponíveis para seleção como componentes (excluindo o produto final)
+  const materiasPrimasDisponiveis = produtos
+    .filter(p => p.tipo === 'MATERIA_PRIMA')
+    .filter(p => p.id !== watchedProdutoId)
+
+  // Somente produtos acabados para seleção do Produto Final
+  const produtosAcabados = produtos.filter(p => p.tipo === 'PRODUTO_ACABADO')
 
   // Removido cálculo de custo (campo 'preco' não existe em Produto)
 
@@ -121,11 +127,24 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
       if (!produtoFinal) {
         throw new Error('Produto final não encontrado')
       }
+      // Garantir que o Produto Final seja um produto acabado
+      if (produtoFinal.tipo !== 'PRODUTO_ACABADO') {
+        throw new Error('Selecione um produto acabado como Produto Final')
+      }
 
       // Validar que todos os componentes foram selecionados
       const componentesInvalidos = data.componentes.filter(c => !c.produtoId || c.produtoId.trim() === '')
       if (componentesInvalidos.length > 0) {
         throw new Error('Todos os componentes devem ter um produto selecionado')
+      }
+
+      // Validar que todos os componentes são matérias-primas
+      const componentesNaoMateriaPrima = data.componentes.filter(c => {
+        const produtoComp = produtos.find(p => p.id === c.produtoId)
+        return produtoComp && produtoComp.tipo !== 'MATERIA_PRIMA'
+      })
+      if (componentesNaoMateriaPrima.length > 0) {
+        throw new Error('Os componentes da ficha técnica devem ser matérias-primas. Remova itens que não sejam matérias-primas.')
       }
 
       // Monta o DTO esperado pelo backend para criar/atualizar a ficha técnica do produto acabado
@@ -202,8 +221,8 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
                     errors.produtoId && "border-red-500 focus:ring-red-500"
                   )}
                 >
-                  <option value="">Selecione um produto</option>
-                  {produtos.map((produto) => (
+                  <option value="">Selecione um produto acabado</option>
+                  {produtosAcabados.map((produto) => (
                     <option key={produto.id} value={produto.id}>
                       {produto.nome} ({produto.unidadeMedida})
                     </option>
@@ -277,7 +296,7 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Produto
+                          Matéria-prima
                         </label>
                         <select
                           {...register(`componentes.${index}.produtoId`)}
@@ -288,8 +307,8 @@ export const FichaTecnicaModal: React.FC<FichaTecnicaModalProps> = ({
                             errors.componentes?.[index]?.produtoId && "border-red-500 focus:ring-red-500"
                           )}
                         >
-                          <option value="">Selecione um produto</option>
-                          {produtosDisponiveis.map((produto) => (
+                          <option value="">Selecione uma matéria-prima</option>
+                          {materiasPrimasDisponiveis.map((produto) => (
                             <option key={produto.id} value={produto.id}>
                               {produto.nome} ({produto.unidadeMedida}) - Estoque: {produto.quantidadeEmEstoque}
                             </option>
