@@ -10,13 +10,13 @@ export default defineConfig({
   },
   server: {
     // Fixar a porta do servidor de desenvolvimento
-    port: 5175,
+    port: 5173,
     // Não tentar outra porta: falhar se 5175 estiver ocupada
     strictPort: true,
   },
   preview: {
     // Opcional: manter a mesma porta no preview
-    port: 5175,
+    port: 5173,
     strictPort: true,
   },
   plugins: [

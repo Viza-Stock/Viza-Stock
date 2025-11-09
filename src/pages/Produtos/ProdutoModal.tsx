@@ -24,29 +24,9 @@ interface ProdutoModalProps {
   isEditing: boolean
 }
 
+// Apenas "Produto acabado" deve aparecer como opção de categoria
 const categorias = [
-  'Matéria Prima',
-  'Produto Acabado',
-  'Componente',
-  'Embalagem',
-  'Insumo',
-  'Ferramenta',
-  'Outros'
-]
-
-const unidadesMedida = [
-  'UN', // Unidade
-  'KG', // Quilograma
-  'G',  // Grama
-  'L',  // Litro
-  'ML', // Mililitro
-  'M',  // Metro
-  'CM', // Centímetro
-  'M²', // Metro quadrado
-  'M³', // Metro cúbico
-  'PC', // Peça
-  'CX', // Caixa
-  'PCT' // Pacote
+  'Produto acabado'
 ]
 
 export const ProdutoModal: React.FC<ProdutoModalProps> = ({
@@ -62,31 +42,20 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    reset,
-    watch
+    reset
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
     defaultValues: (() => {
-      // Mapear tipo do backend para categoria exibida no formulário
-      const mapTipoParaCategoria = (tipo?: Produto['tipo']) => {
-        switch (tipo) {
-          case 'PRODUTO_ACABADO':
-            return 'Produto Acabado'
-          case 'MATERIA_PRIMA':
-            return 'Matéria Prima'
-          default:
-            return ''
-        }
-      }
+      // Independente do tipo do backend, sempre exibir/preselecionar "Produto acabado"
       return produto ? {
         nome: produto.nome,
         descricao: produto.desc || '',
-        categoria: mapTipoParaCategoria(produto.tipo),
+        categoria: 'Produto acabado',
         unidadeMedida: produto.unidadeMedida
       } : {
         nome: '',
         descricao: '',
-        categoria: '',
+        categoria: 'Produto acabado',
         unidadeMedida: 'UN'
       }
     })()
@@ -226,7 +195,6 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
                     : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
                 )}
               >
-                <option value="">Selecione uma categoria</option>
                 {categorias.map(categoria => (
                   <option key={categoria} value={categoria}>
                     {categoria}
@@ -258,7 +226,7 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Unidade de Medida *
+              Unidades
             </label>
             <select
                 {...register('unidadeMedida')}
@@ -269,11 +237,8 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
                     : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
                 )}
               >
-                {unidadesMedida.map(unidade => (
-                  <option key={unidade} value={unidade}>
-                    {unidade}
-                  </option>
-                ))}
+                {/* Exibir apenas a opção única "UNIDADE" com valor "UN" para compatibilidade */}
+                <option value="UN">UNIDADE</option>
               </select>
               {errors.unidadeMedida && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">

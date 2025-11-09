@@ -13,7 +13,7 @@ COPY . .
 
 ENV VITE_API_URL=http://localhost:8080/api
 
-EXPOSE 5175
+EXPOSE 5173
 
 # Default command runs Vite dev server; host 0.0.0.0 to be reachable from host
 CMD ["sh", "-c", "npm run dev -- --host 0.0.0.0"]
