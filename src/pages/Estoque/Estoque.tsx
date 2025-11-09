@@ -7,15 +7,19 @@ import {
   AlertTriangle,
   Calendar,
   Download,
-  PlusCircle
+  PlusCircle,
+  Pencil,
+  Trash2
 } from 'lucide-react'
 import { useProdutoStore, useProdutosEstoqueBaixo } from '../../stores/produtoStore'
 import { relatoriosService, producaoService } from '../../services/api'
-import type { MovimentacaoEstoque } from '../../types'
+import type { MovimentacaoEstoque, Produto } from '../../types'
 import { cn } from '../../lib/utils'
+import { useNotifications } from '../../stores/uiStore'
+import { EstoqueModal } from '../Produtos'
 
 export const Estoque: React.FC = () => {
-  const { produtos, fetchProdutos } = useProdutoStore()
+  const { produtos, fetchProdutos, deletarProduto } = useProdutoStore()
   const limiteEstoqueBaixo = 10
   const produtosEstoqueBaixo = useProdutosEstoqueBaixo(limiteEstoqueBaixo)
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
@@ -31,6 +35,10 @@ export const Estoque: React.FC = () => {
   const [cadastroDesc, setCadastroDesc] = useState('')
   const [cadastroLoading, setCadastroLoading] = useState(false)
   const [cadastroErro, setCadastroErro] = useState<string | null>(null)
+  // Estado para modal de movimentação de estoque (Entrada/Saída)
+  const [estoqueModalAberto, setEstoqueModalAberto] = useState(false)
+  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
+  const { showSuccess, showError } = useNotifications()
 
   useEffect(() => {
     const loadData = async () => {
@@ -55,8 +63,30 @@ export const Estoque: React.FC = () => {
     const matchTipo = filtroTipo === 'TODOS' || mov.tipo === filtroTipo
     const matchData = !filtroData || new Date(mov.data).toISOString().split('T')[0] === filtroData
     
-    return matchSearch && matchTipo && matchData
+  return matchSearch && matchTipo && matchData
   })
+
+  // Ações de edição/exclusão
+  const abrirModalEstoque = (produto: Produto) => {
+    setProdutoSelecionado(produto)
+    setEstoqueModalAberto(true)
+  }
+
+  const fecharModalEstoque = () => {
+    setEstoqueModalAberto(false)
+    setProdutoSelecionado(null)
+  }
+
+  const handleExcluirProduto = async (produto: Produto) => {
+    const confirmar = window.confirm(`Tem certeza que deseja excluir "${produto.nome}"? Esta ação não pode ser desfeita.`)
+    if (!confirmar) return
+    try {
+      await deletarProduto(produto.id)
+      showSuccess('Produto excluído', `"${produto.nome}" foi excluído com sucesso.`)
+    } catch (err) {
+      showError('Erro ao excluir', err instanceof Error ? err.message : 'Não foi possível excluir o produto.')
+    }
+  }
 
   // Calcular estatísticas
   const totalProdutos = produtos.length
@@ -439,12 +469,38 @@ export const Estoque: React.FC = () => {
                       {p.quantidadeEmEstoque} {p.unidadeMedida}
                     </p>
                   </div>
+                  {/* Ações: Editar (Entrada/Saída) e Excluir */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => abrirModalEstoque(p)}
+                      title="Editar estoque (adicionar/retirar)"
+                      className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                    </button>
+                    <button
+                      onClick={() => handleExcluirProduto(p)}
+                      title="Excluir produto"
+                      className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Modal de Movimentação de Estoque (Entrada/Saída) */}
+      {produtoSelecionado && (
+        <EstoqueModal
+          produto={produtoSelecionado}
+          isOpen={estoqueModalAberto}
+          onClose={fecharModalEstoque}
+        />
+      )}
 
       {/* Alertas de Estoque Baixo */}
       {produtosEstoqueBaixo.length > 0 && (
