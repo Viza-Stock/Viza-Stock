@@ -24,6 +24,8 @@ services:
     environment:
       # O browser acessa via host, não via DNS interno do Docker
       VITE_API_URL: http://localhost:8080/api
+      # Habilitar mocks no frontend para evitar falhas quando a API não estiver disponível
+      VITE_USE_MOCKS: "true"
     ports:
       - "5173:5173"
     volumes:

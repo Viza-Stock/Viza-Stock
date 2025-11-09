@@ -30,10 +30,8 @@ public class ProducaoService {
 
     @Transactional
     public FichaTecnica criarProdutoAcabadoComFichaTecnica(ProdutoAcabadoRequestDTO dto) {
-        // Validar componentes
-        if (dto.getComponentes() == null || dto.getComponentes().isEmpty()) {
-            throw new IllegalArgumentException("Produto Acabado deve ter pelo menos um componente.");
-        }
+        // Observação: A ficha técnica pode ser adicionada posteriormente.
+        // Portanto, não exigimos componentes no momento da criação do produto acabado.
 
         Produto produtoAcabado;
         String idInformado = dto.getId();
@@ -47,11 +45,8 @@ public class ProducaoService {
             criarDTO.setUnidadeMedida(dto.getUnidadeMedida());
             produtoAcabado = estoqueService.criarProduto(criarDTO);
         } else {
-            // Com ID: validar que é numérico e usar existente ou criar com ID informado
+            // Com ID: usar existente ou criar com ID informado (aceitamos ID alfanumérico)
             String idTrim = idInformado.trim();
-            if (!idTrim.matches("\\d+")) {
-                throw new IllegalArgumentException("O ID do produto acabado deve ser numérico (apenas dígitos). Ex.: 01, 02, 10");
-            }
             produtoAcabado = produtoRepository.findById(idTrim)
                     .map(produtoExistente -> {
                         if (produtoExistente.getTipo() != TipoProduto.PRODUTO_ACABADO) {
@@ -91,20 +86,22 @@ public class ProducaoService {
             }
         }
 
-        // Adicionar novos componentes
-        for (ComponenteDTO compDTO : dto.getComponentes()) {
-            if (compDTO.getMateriaPrimaId() == null || compDTO.getMateriaPrimaId().trim().isEmpty()) {
-                throw new IllegalArgumentException("ID da matéria-prima não pode ser nulo ou vazio.");
+        // Adicionar novos componentes, se fornecidos
+        if (dto.getComponentes() != null) {
+            for (ComponenteDTO compDTO : dto.getComponentes()) {
+                if (compDTO.getMateriaPrimaId() == null || compDTO.getMateriaPrimaId().trim().isEmpty()) {
+                    throw new IllegalArgumentException("ID da matéria-prima não pode ser nulo ou vazio.");
+                }
+
+                Produto materiaPrima = produtoRepository.findById(compDTO.getMateriaPrimaId())
+                        .orElseThrow(() -> new EntityNotFoundException("Matéria-prima não encontrada com ID: " + compDTO.getMateriaPrimaId()));
+
+                if (compDTO.getQuantidade() <= 0) {
+                    throw new IllegalArgumentException("Quantidade do componente deve ser maior que zero.");
+                }
+
+                ficha.adicionarComponente(materiaPrima, compDTO.getQuantidade());
             }
-            
-            Produto materiaPrima = produtoRepository.findById(compDTO.getMateriaPrimaId())
-                    .orElseThrow(() -> new EntityNotFoundException("Matéria-prima não encontrada com ID: " + compDTO.getMateriaPrimaId()));
-            
-            if (compDTO.getQuantidade() <= 0) {
-                throw new IllegalArgumentException("Quantidade do componente deve ser maior que zero.");
-            }
-            
-            ficha.adicionarComponente(materiaPrima, compDTO.getQuantidade());
         }
 
         // Garantir que o vínculo do produto acabado está correto

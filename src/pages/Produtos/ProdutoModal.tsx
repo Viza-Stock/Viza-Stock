@@ -11,8 +11,9 @@ import { cn } from '../../lib/utils'
 const produtoSchema = z.object({
   nome: z.string().min(1, 'Nome é obrigatório').max(100, 'Nome muito longo'),
   descricao: z.string().optional(),
-  categoria: z.string().min(1, 'Categoria é obrigatória'),
-  unidadeMedida: z.string().min(1, 'Unidade de medida é obrigatória')
+  tipo: z.enum(['MATERIA_PRIMA', 'PRODUTO_ACABADO'], {
+    required_error: 'Tipo é obrigatório'
+  })
 })
 
 type ProdutoFormData = z.infer<typeof produtoSchema>
@@ -24,9 +25,10 @@ interface ProdutoModalProps {
   isEditing: boolean
 }
 
-// Apenas "Produto acabado" deve aparecer como opção de categoria
-const categorias = [
-  'Produto acabado'
+// Opções de Tipo
+const tipos = [
+  { value: 'MATERIA_PRIMA' as const, label: 'Matéria-prima' },
+  { value: 'PRODUTO_ACABADO' as const, label: 'Produto acabado' }
 ]
 
 export const ProdutoModal: React.FC<ProdutoModalProps> = ({
@@ -46,38 +48,25 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
   } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema),
     defaultValues: (() => {
-      // Independente do tipo do backend, sempre exibir/preselecionar "Produto acabado"
       return produto ? {
         nome: produto.nome,
         descricao: produto.desc || '',
-        categoria: 'Produto acabado',
-        unidadeMedida: produto.unidadeMedida
+        tipo: produto.tipo
       } : {
         nome: '',
         descricao: '',
-        categoria: 'Produto acabado',
-        unidadeMedida: 'UN'
+        tipo: 'PRODUTO_ACABADO'
       }
     })()
   })
 
   const onSubmit = async (data: ProdutoFormData) => {
     try {
-      // Mapeia categoria do formulário para o tipo esperado pelo backend
-      const mapCategoriaParaTipo = (categoria: string): ProdutoRequestDTO['tipo'] => {
-        const c = (categoria || '').toLowerCase()
-        if (c.includes('acabado')) {
-          return 'PRODUTO_ACABADO'
-        }
-        // Padrão: matéria-prima
-        return 'MATERIA_PRIMA'
-      }
-
       const produtoData: ProdutoRequestDTO = {
         nome: data.nome,
         desc: data.descricao || undefined,
-        tipo: mapCategoriaParaTipo(data.categoria),
-        unidadeMedida: data.unidadeMedida
+        tipo: data.tipo,
+        unidadeMedida: (isEditing && produto) ? produto.unidadeMedida : 'UN'
       }
 
       if (isEditing && produto) {
@@ -135,7 +124,7 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
         {/* Formulário */}
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
           {/* Em modo edição, nenhuma advertência é necessária agora que o backend suporta atualização */}
-          {/* Nome e Categoria */}
+          {/* Nome e Tipo */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -161,26 +150,26 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Categoria *
+                Tipo *
               </label>
               <select
-                {...register('categoria')}
+                {...register('tipo')}
                 className={cn(
                   "w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-                  errors.categoria
+                  errors.tipo
                     ? "border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20"
                     : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
                 )}
               >
-                {categorias.map(categoria => (
-                  <option key={categoria} value={categoria}>
-                    {categoria}
+                {tipos.map(t => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
                   </option>
                 ))}
               </select>
-              {errors.categoria && (
+              {errors.tipo && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                  {errors.categoria.message}
+                  {errors.tipo.message}
                 </p>
               )}
             </div>
@@ -195,35 +184,10 @@ export const ProdutoModal: React.FC<ProdutoModalProps> = ({
               {...register('descricao')}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700"
-              placeholder="Descrição detalhada do produto (opcional)"
+              placeholder="Descrição do produto"
             />
           </div>
-
-        {/* Unidade de Medida e Preço */}
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Unidades
-            </label>
-            <select
-                {...register('unidadeMedida')}
-                className={cn(
-                  "w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-                  errors.unidadeMedida
-                    ? "border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20"
-                    : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-                )}
-              >
-                {/* Exibir apenas a opção única "UNIDADE" com valor "UN" para compatibilidade */}
-                <option value="UN">UNIDADE</option>
-              </select>
-              {errors.unidadeMedida && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                  {errors.unidadeMedida.message}
-                </p>
-              )}
-            </div>
-          </div>
+          {/* Removido: Unidade de Medida */}
 
           {/* Removido: campos de preço, estoque mínimo e quantidade inicial (não suportados pelo backend atual) */}
         </form>

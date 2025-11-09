@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { 
-  Plus, 
   Search, 
   Filter, 
-  Edit, 
-  Trash2, 
-  Package,
   AlertCircle,
-  Download
+  Download,
+  Package
 } from 'lucide-react'
 import { useProdutoStore, useProdutosFiltrados } from '../../stores/produtoStore'
 import { useNotifications } from '../../stores/uiStore'
-import { ProdutoModal } from './ProdutoModal'
-import { EstoqueModal } from './EstoqueModal'
+// Página apenas de visualização: modais de criação/edição e estoque removidos
 import type { Produto } from '../../types'
 import { cn } from '../../lib/utils'
 
@@ -23,19 +19,14 @@ export const Produtos: React.FC = () => {
     error, 
     filtros,
     fetchProdutos, 
-    deletarProduto,
     setFiltros
   } = useProdutoStore()
 
   // Seleção computada dos produtos filtrados
   const produtosFiltrados = useProdutosFiltrados()
   
-  const { showSuccess, showError } = useNotifications()
+  const { showSuccess } = useNotifications()
   
-  const [showProdutoModal, setShowProdutoModal] = useState(false)
-  const [showEstoqueModal, setShowEstoqueModal] = useState(false)
-  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
-  const [modoEdicao, setModoEdicao] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
@@ -52,37 +43,7 @@ export const Produtos: React.FC = () => {
     }
   }, [searchTerm, filtros.busca, setFiltros])
 
-  // Removido handler de edição não suportada no backend atual
-  const handleEditarProduto = (produto: Produto) => {
-    setProdutoSelecionado(produto)
-    setModoEdicao(true)
-    setShowProdutoModal(true)
-  }
-
-  const handleNovoProduto = () => {
-    setProdutoSelecionado(null)
-    setModoEdicao(false)
-    setShowProdutoModal(true)
-  }
-
-  const handleGerenciarEstoque = (produto: Produto) => {
-    setProdutoSelecionado(produto)
-    setShowEstoqueModal(true)
-  }
-
-  const handleExcluirProduto = async (produto: Produto) => {
-    if (window.confirm(`Tem certeza que deseja excluir o produto "${produto.nome}"?`)) {
-      try {
-        await deletarProduto(produto.id)
-        showSuccess('Produto excluído', 'Produto removido com sucesso')
-      } catch (error) {
-        const msg = error instanceof Error 
-          ? error.message 
-          : 'Não foi possível excluir o produto'
-        showError('Erro ao excluir', msg)
-      }
-    }
-  }
+  // Página de visualização: ações de criação/edição/exclusão removidas
 
   const handleExportarProdutos = () => {
     // Implementar exportação para CSV/Excel
@@ -148,14 +109,6 @@ export const Produtos: React.FC = () => {
           >
             <Download className="w-4 h-4" />
             <span>Exportar</span>
-          </button>
-          
-          <button 
-            onClick={handleNovoProduto}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Produto</span>
           </button>
         </div>
       </div>
@@ -250,15 +203,7 @@ export const Produtos: React.FC = () => {
               : 'Comece adicionando seu primeiro produto'
             }
           </p>
-          {!searchTerm && Object.keys(filtros || {}).length === 0 && (
-            <button 
-              onClick={handleNovoProduto}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar Produto</span>
-            </button>
-          )}
+          {/* Em modo visualização, não exibir botão de adicionar produto */}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -337,66 +282,14 @@ export const Produtos: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Ações */}
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => handleGerenciarEstoque(produto)}
-                      className="flex items-center space-x-1 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors text-sm"
-                    >
-                      <Package className="w-4 h-4" />
-                      <span>Estoque</span>
-                    </button>
-
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => handleEditarProduto(produto)}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
-                        title="Editar produto"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleExcluirProduto(produto)}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                        title="Excluir produto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                {/* Página de visualização: seção de ações removida */}
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Modais */}
-      {showProdutoModal && (
-        <ProdutoModal
-          produto={produtoSelecionado}
-          isOpen={showProdutoModal}
-          onClose={() => {
-            setShowProdutoModal(false)
-            setProdutoSelecionado(null)
-            setModoEdicao(false)
-          }}
-          isEditing={modoEdicao}
-        />
-      )}
-
-      {showEstoqueModal && produtoSelecionado && (
-        <EstoqueModal
-          produto={produtoSelecionado}
-          isOpen={showEstoqueModal}
-          onClose={() => {
-            setShowEstoqueModal(false)
-            setProdutoSelecionado(null)
-          }}
-        />
-      )}
+      {/* Página de visualização: modais removidos */}
     </div>
   )
 }

@@ -40,11 +40,18 @@ api.interceptors.response.use(
     const message = error?.message || 'Erro na API'
 
     // Em desenvolvimento, endpoints de relatórios podem não existir.
-    // Não poluir o console com erros: registrar como aviso.
-    if (isRelatorioEndpoint || isNetworkError) {
-      console.warn('Aviso da API:', message)
+    // Evitar poluição com logs de erro quando for queda de rede e iremos usar mocks.
+    if (isNetworkError) {
+      if (USE_MOCKS) {
+        console.info('API não disponível, usando mocks. Detalhes:', message)
+      } else {
+        console.error('Erro de rede na API:', message)
+      }
+    } else if (isRelatorioEndpoint) {
+      console.info('Endpoint de relatórios indisponível, retornando vazio/mocks quando aplicável.')
     } else {
-      console.error('Erro na API:', error)
+      // Para erros com resposta do backend, mostrar mensagem amigável quando possível
+      console.error('Erro na API:', getApiErrorMessage(error))
     }
     return Promise.reject(error)
   }
@@ -135,14 +142,14 @@ export const produtosService = {
           return await attempt()
         } catch (err2) {
           if (shouldUseMocks()) {
-            console.warn('API não disponível, usando dados mock (após retry):', err2)
+            console.info('API não disponível, usando dados mock (após retry):', (axios.isAxiosError(err2) ? err2.message : String(err2)))
             return mockProdutos
           }
           throw err2
         }
       }
       if (shouldUseMocks()) {
-        console.warn('API não disponível, usando dados mock:', error)
+        console.info('API não disponível, usando dados mock:', (axios.isAxiosError(error) ? error.message : String(error)))
         return mockProdutos
       }
       throw error
@@ -156,7 +163,7 @@ export const produtosService = {
       return response.data
     } catch (error) {
       if (shouldUseMocks()) {
-        console.warn('API não disponível, buscando produto mock:', error)
+        console.info('API não disponível, buscando produto mock:', (axios.isAxiosError(error) ? error.message : String(error)))
         const produto = mockProdutos.find(p => p.id === id)
         if (!produto) {
           throw new Error('Produto não encontrado')
@@ -174,7 +181,7 @@ export const produtosService = {
       return response.data
     } catch (error) {
       if (shouldUseMocks()) {
-        console.warn('API não disponível, simulando criação:', error)
+        console.info('API não disponível, simulando criação:', (axios.isAxiosError(error) ? error.message : String(error)))
         const novoProduto: Produto = {
           id: produto.id || Date.now().toString(),
           nome: produto.nome,
@@ -197,7 +204,7 @@ export const produtosService = {
       return response.data
     } catch (error) {
       if (shouldUseMocks()) {
-        console.warn('API não disponível, simulando entrada:', error)
+        console.info('API não disponível, simulando entrada:', (axios.isAxiosError(error) ? error.message : String(error)))
         const produto = mockProdutos.find(p => p.id === entrada.produtoId)
         if (!produto) {
           throw new Error('Produto não encontrado')
@@ -219,7 +226,7 @@ export const produtosService = {
       return response.data
     } catch (error) {
       if (shouldUseMocks()) {
-        console.warn('API não disponível, simulando baixa:', error)
+        console.info('API não disponível, simulando baixa:', (axios.isAxiosError(error) ? error.message : String(error)))
         const produto = mockProdutos.find(p => p.id === produtoId)
         if (!produto) {
           throw new Error('Produto não encontrado')
@@ -237,7 +244,7 @@ export const produtosService = {
       await api.delete(`/produtos/${id}`)
     } catch (error) {
       if (shouldUseMocks()) {
-        console.warn('API não disponível, simulando exclusão:', error)
+        console.info('API não disponível, simulando exclusão:', (axios.isAxiosError(error) ? error.message : String(error)))
         const index = mockProdutos.findIndex(p => p.id === id)
         if (index > -1) {
           mockProdutos.splice(index, 1)

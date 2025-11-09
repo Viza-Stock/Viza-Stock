@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { 
   Search, 
-  Filter, 
   TrendingUp, 
   TrendingDown, 
   Package,
   AlertTriangle,
   Calendar,
-  Download
+  Download,
+  PlusCircle
 } from 'lucide-react'
 import { useProdutoStore, useProdutosEstoqueBaixo } from '../../stores/produtoStore'
-import { relatoriosService } from '../../services/api'
+import { relatoriosService, producaoService } from '../../services/api'
 import type { MovimentacaoEstoque } from '../../types'
 import { cn } from '../../lib/utils'
 
@@ -23,6 +23,14 @@ export const Estoque: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [filtroTipo, setFiltroTipo] = useState<'TODOS' | 'ENTRADA' | 'SAIDA'>('TODOS')
   const [filtroData, setFiltroData] = useState('')
+  const [tipoEstoque, setTipoEstoque] = useState<'PRODUTO' | 'MATERIA_PRIMA'>('PRODUTO')
+  const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [cadastroId, setCadastroId] = useState('')
+  const [cadastroNome, setCadastroNome] = useState('')
+  const [cadastroUnidade, setCadastroUnidade] = useState('UN')
+  const [cadastroDesc, setCadastroDesc] = useState('')
+  const [cadastroLoading, setCadastroLoading] = useState(false)
+  const [cadastroErro, setCadastroErro] = useState<string | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -81,6 +89,166 @@ export const Estoque: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Modal de Cadastro */}
+      {cadastroAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !cadastroLoading && setCadastroAberto(false)}></div>
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-lg mx-4 border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Cadastrar {tipoEstoque === 'PRODUTO' ? 'Produto' : 'Matéria prima'}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {tipoEstoque === 'PRODUTO'
+                  ? 'Crie um novo produto acabado. A ficha técnica pode ser adicionada posteriormente.'
+                  : 'Crie uma nova matéria prima para uso na produção.'}
+              </p>
+            </div>
+            <form
+              className="p-6 space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setCadastroErro(null)
+                setCadastroLoading(true)
+                try {
+                  if (tipoEstoque === 'MATERIA_PRIMA') {
+                    await useProdutoStore.getState().criarProduto({
+                      id: cadastroId || undefined,
+                      nome: cadastroNome,
+                      desc: cadastroDesc || undefined,
+                      tipo: 'MATERIA_PRIMA',
+                      unidadeMedida: cadastroUnidade
+                    })
+                  } else {
+                    await producaoService.criarProdutoAcabado({
+                      id: undefined,
+                      nome: cadastroNome,
+                      desc: cadastroDesc || undefined,
+                      unidadeMedida: 'UN',
+                      componentes: []
+                    })
+                    // Recarregar lista de produtos
+                    await fetchProdutos()
+                  }
+                  setCadastroAberto(false)
+                  setCadastroId('')
+                  setCadastroNome('')
+                  setCadastroUnidade('UN')
+                  setCadastroDesc('')
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : 'Erro ao salvar'
+                  setCadastroErro(message)
+                } finally {
+                  setCadastroLoading(false)
+                }
+              }}
+            >
+              {/* Campos específicos por tipo de estoque */}
+              {tipoEstoque === 'PRODUTO' ? (
+                // Formulário para Estoque de Produtos (apenas Nome, Tipo e Descrição)
+                <div className="space-y-4">
+                  {/* Tipo - fixo como Produto acabado para cumprir requisito visual */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+                    <select
+                      value="PRODUTO_ACABADO"
+                      disabled
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="PRODUTO_ACABADO">Produto acabado</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                // Formulário para Estoque de Matéria-prima (mantém como antes)
+                <>
+                  {/* ID (opcional) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID (opcional)</label>
+                  <input
+                      type="text"
+                      value={cadastroId}
+                      onChange={(e) => setCadastroId(e.target.value)}
+                      placeholder={'Ex: 01, 02, 10'}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Se não informado, o sistema gera automaticamente. IDs numéricos (apenas dígitos).</p>
+                  </div>
+
+                  {/* Unidade de Medida */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidade de Medida</label>
+                    <select
+                      value={cadastroUnidade}
+                      onChange={(e) => setCadastroUnidade(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="UN">UN - Unidade</option>
+                      <option value="KG">KG - Quilograma</option>
+                      <option value="G">G - Grama</option>
+                      <option value="L">L - Litro</option>
+                      <option value="ML">ML - Mililitro</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {/* Nome */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={cadastroNome}
+                  onChange={(e) => setCadastroNome(e.target.value)}
+                  placeholder={tipoEstoque === 'PRODUTO' ? 'Nome do produto acabado' : 'Nome da matéria prima'}
+                  required
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Para produtos: unidade padrão 'UN' (não exibida). Para matéria-prima: unidade configurável acima. */}
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição (opcional)</label>
+                <textarea
+                  value={cadastroDesc}
+                  onChange={(e) => setCadastroDesc(e.target.value)}
+                  rows={3}
+                  placeholder="Descrição breve"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {cadastroErro && (
+                <div className="text-sm text-red-600 dark:text-red-400">{cadastroErro}</div>
+              )}
+
+              {/* Ações */}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={cadastroLoading}
+                  onClick={() => setCadastroAberto(false)}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={cadastroLoading || !cadastroNome}
+                  className={cn(
+                    'px-4 py-2 rounded-lg transition-colors',
+                    cadastroLoading ? 'bg-green-300 text-white' : 'bg-green-600 text-white hover:bg-green-700'
+                  )}
+                >
+                  {cadastroLoading ? 'Salvando...' : 'Salvar Cadastro'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -93,10 +261,66 @@ export const Estoque: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+          <button
+            onClick={() => setCadastroAberto(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>
+              Cadastrar {tipoEstoque === 'PRODUTO' ? 'Produto' : 'Matéria prima'}
+            </span>
+          </button>
           <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <Download className="w-4 h-4" />
             <span>Exportar Relatório</span>
           </button>
+        </div>
+      </div>
+
+      {/* Seletor de Tipo de Estoque */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Tipo de Estoque</p>
+            <div className="inline-flex rounded-md shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setTipoEstoque('PRODUTO')}
+                className={cn(
+                  'px-4 py-2 text-sm focus:outline-none transition-colors',
+                  tipoEstoque === 'PRODUTO'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                )}
+              >
+                Produto
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoEstoque('MATERIA_PRIMA')}
+                className={cn(
+                  'px-4 py-2 text-sm border-l border-gray-200 dark:border-gray-700 focus:outline-none transition-colors',
+                  tipoEstoque === 'MATERIA_PRIMA'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                )}
+              >
+                Matéria prima
+              </button>
+            </div>
+          </div>
+
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+            {tipoEstoque === 'PRODUTO' ? (
+              <span>
+                Visualizando estoque de produtos acabados (itens vendidos aos clientes).
+              </span>
+            ) : (
+              <span>
+                Visualizando estoque de matéria prima (insumos utilizados na produção).
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -212,7 +436,7 @@ export const Estoque: React.FC = () => {
           {/* Filtro por Tipo */}
           <select
             value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value as any)}
+            onChange={(e) => setFiltroTipo(e.target.value as 'TODOS' | 'ENTRADA' | 'SAIDA')}
             className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="TODOS">Todos os tipos</option>
