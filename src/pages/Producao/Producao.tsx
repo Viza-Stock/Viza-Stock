@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   Package,
   Factory,
-  Calendar
+  Calendar,
+  LayoutGrid,
+  Table
 } from 'lucide-react'
 import { useProducaoStore } from '../../stores/producaoStore'
 import { useProdutoStore } from '../../stores/produtoStore'
@@ -15,25 +17,31 @@ import type { OrdemProducao } from '../../types'
 import { cn } from '../../lib/utils'
 import { OrdemProducaoModal } from './OrdemProducaoModal'
 import { ProdutoAcabadoModal } from './ProdutoAcabadoModal'
+import { KanbanBoard } from '../../components/Kanban'
 
 export const Producao: React.FC = () => {
   const { 
     ordensProducao, 
     // loading global do store não deve bloquear a página inteira
     // loading,
-    fetchFichasTecnicas
+    fetchFichasTecnicas,
+    alterarStatusOrdem,
+    verificarViabilidade,
+    executarOrdem
   } = useProducaoStore()
   const { produtos, fetchProdutos } = useProdutoStore()
   // Removido uso de notificações não utilizado para evitar avisos de lint
   
   const [searchTerm, setSearchTerm] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'PENDENTE' | 'EXECUTADA' | 'CANCELADA'>('TODOS')
+  const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA'>('TODOS')
   const [ordemModalOpen, setOrdemModalOpen] = useState(false)
   const [produtoAcabadoModalOpen, setProdutoAcabadoModalOpen] = useState(false)
   const [, setSelectedOrdem] = useState<OrdemProducao | null>(null)
   // Novo estado local para controlar o carregamento inicial da página,
   // evitando que requisições feitas pelo modal ocultem toda a tela.
   const [loadingPagina, setLoadingPagina] = useState(true)
+  // Estado para alternar entre visualização de tabela e kanban
+  const [visualizacao, setVisualizacao] = useState<'tabela' | 'kanban'>('kanban')
 
   useEffect(() => {
     // Carregamento inicial: aguarda as duas chamadas e então libera a página
@@ -59,10 +67,36 @@ export const Producao: React.FC = () => {
 
   // Removido handler não utilizado para evitar avisos de lint
 
+  const handleStatusChange = async (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => {
+    try {
+      // Encontrar a ordem no estado atual
+      const ordem = ordensProducao.find(o => o.id === ordemId)
+      if (!ordem) return
+
+      if (novoStatus === 'EXECUTADA') {
+        const viavel = await verificarViabilidade(ordem.produtoAcabadoId, ordem.quantidadeProduzida)
+        if (!viavel) {
+          alert('Quantidade insuficiente em estoque para executar a ordem!')
+          return
+        }
+        await executarOrdem({ produtoAcabadoId: ordem.produtoAcabadoId, quantidadeAProduzir: ordem.quantidadeProduzida })
+        alterarStatusOrdem(ordemId, 'EXECUTADA')
+      } else {
+        alterarStatusOrdem(ordemId, novoStatus)
+      }
+    
+    } catch (error) {
+      console.error('Erro ao mudar status:', error)
+      alert('Erro ao mudar status da ordem')
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDENTE':
         return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300'
+      case 'EM_ANDAMENTO':
+        return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300'
       case 'EXECUTADA':
         return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300'
       case 'CANCELADA':
@@ -76,6 +110,8 @@ export const Producao: React.FC = () => {
     switch (status) {
       case 'PENDENTE':
         return <Clock className="w-4 h-4" />
+      case 'EM_ANDAMENTO':
+        return <Factory className="w-4 h-4" />
       case 'EXECUTADA':
         return <CheckCircle className="w-4 h-4" />
       case 'CANCELADA':
@@ -193,7 +229,7 @@ export const Producao: React.FC = () => {
 
       {/* Filtros e Pesquisa */}
       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Pesquisa */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -211,16 +247,45 @@ export const Producao: React.FC = () => {
             value={filtroStatus}
             onChange={(e) =>
               setFiltroStatus(
-                e.target.value as 'TODOS' | 'PENDENTE' | 'EXECUTADA' | 'CANCELADA'
+                e.target.value as 'TODOS' | 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA'
               )
             }
             className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="TODOS">Todos os status</option>
             <option value="PENDENTE">Pendentes</option>
+            <option value="EM_ANDAMENTO">Em andamento</option>
             <option value="EXECUTADA">Executadas</option>
             <option value="CANCELADA">Canceladas</option>
           </select>
+
+          {/* Botões de Visualização */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setVisualizacao('tabela')}
+              className={cn(
+                "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                visualizacao === 'tabela'
+                  ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                  : "bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+              )}
+            >
+              <Table className="w-4 h-4" />
+              <span>Tabela</span>
+            </button>
+            <button
+              onClick={() => setVisualizacao('kanban')}
+              className={cn(
+                "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                visualizacao === 'kanban'
+                  ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                  : "bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Kanban</span>
+            </button>
+          </div>
 
           {/* Botão Limpar */}
           <button
@@ -235,8 +300,8 @@ export const Producao: React.FC = () => {
         </div>
       </div>
 
-      {/* Lista de Ordens */}
-      {ordensFiltradas.length === 0 ? (
+      {/* Mensagem de lista vazia (apenas na visualização em tabela) */}
+      {ordensFiltradas.length === 0 && visualizacao === 'tabela' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-12 text-center border border-gray-200 dark:border-gray-700">
           <Factory className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -258,7 +323,17 @@ export const Producao: React.FC = () => {
             </button>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* Visualização de Ordens - Tabela ou Kanban */}
+      {visualizacao === 'kanban' && (
+        <KanbanBoard 
+          ordens={ordensFiltradas} 
+          onStatusChange={handleStatusChange}
+        />
+      )}
+
+      {ordensFiltradas.length > 0 && visualizacao === 'tabela' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="overflow-x-auto">
             <table className="w-full">

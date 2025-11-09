@@ -94,7 +94,7 @@ export interface OrdemProducao {
   produtoNome: string
   quantidadeProduzida: number
   dataExecucao: Date
-  status: 'PENDENTE' | 'EXECUTADA' | 'CANCELADA'
+  status: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA'
 }
 
 // Tipos para filtros e paginação

@@ -20,6 +20,8 @@ interface ProducaoStore {
   executarOrdem: (ordem: OrdemProducaoRequestDTO) => Promise<void>
   verificarViabilidade: (produtoId: string, quantidade: number) => Promise<boolean>
   buscarFichaTecnica: (produtoId: string) => Promise<FichaTecnica | null>
+  alterarStatusOrdem: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => void
+  criarOrdemPendente: (dados: { produtoAcabadoId: string; produtoNome: string; quantidadeAProduzir: number }) => void
   clearError: () => void
 }
 
@@ -135,6 +137,30 @@ export const useProducaoStore = create<ProducaoStore>((set, get) => ({
   // Limpar erro
   clearError: () => {
     set({ error: null })
+  }
+  ,
+
+  // Alterar status de uma ordem de produção (apenas na store local por enquanto)
+  alterarStatusOrdem: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => {
+    set(state => ({
+      ordensProducao: state.ordensProducao.map(o =>
+        o.id === ordemId ? { ...o, status: novoStatus } : o
+      )
+    }))
+  }
+  ,
+
+  // Criar ordem PENDENTE localmente (fluxo correto: cria -> start para EM_ANDAMENTO -> executar -> EXECUTADA)
+  criarOrdemPendente: ({ produtoAcabadoId, produtoNome, quantidadeAProduzir }) => {
+    const novaOrdem: OrdemProducao = {
+      id: `OP-${Date.now()}`,
+      produtoAcabadoId,
+      produtoNome,
+      quantidadeProduzida: quantidadeAProduzir,
+      dataExecucao: new Date(),
+      status: 'PENDENTE'
+    }
+    set(state => ({ ordensProducao: [novaOrdem, ...state.ordensProducao] }))
   }
 }))
 

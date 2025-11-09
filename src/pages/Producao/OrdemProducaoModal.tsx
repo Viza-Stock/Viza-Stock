@@ -24,7 +24,7 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { fichasTecnicas, fetchFichasTecnicas, verificarViabilidade, executarOrdem } = useProducaoStore()
+  const { fichasTecnicas, fetchFichasTecnicas, verificarViabilidade, criarOrdemPendente } = useProducaoStore()
   const { addNotification } = useNotifications()
 
   const {
@@ -77,16 +77,17 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
         return
       }
 
-      // Executar ordem de produção
-      await executarOrdem({
+      // Criar ordem como PENDENTE (fluxo correto)
+      criarOrdemPendente({
         produtoAcabadoId: fichaSelecionada.produtoAcabado.id,
+        produtoNome: fichaSelecionada.produtoAcabado.nome,
         quantidadeAProduzir: data.quantidade
       })
 
       addNotification({
         type: 'success',
-        title: 'Ordem criada',
-        message: `Ordem de produção criada com sucesso.`
+        title: 'Ordem criada como Pendente',
+        message: `A ordem de produção foi criada e está em Pendentes. Ao dar Start, ela irá para Em andamento.`
       })
       
       onSuccess()
