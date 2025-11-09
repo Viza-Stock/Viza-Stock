@@ -23,7 +23,7 @@ services:
     container_name: viza-frontend
     environment:
       # Aponta para o backend exposto na máquina host
-      VITE_API_URL: http://localhost:8080/api
+      VITE_API_URL: http://backend:8080/api
     ports:
       - "5175:5175"
     volumes:
