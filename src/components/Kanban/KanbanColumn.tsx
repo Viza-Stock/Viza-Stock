@@ -18,6 +18,8 @@ interface KanbanColumnProps {
   onCardDragStart: (ordemId: string) => void
   onCardDragEnd: () => void
   draggedOrdemId: string | null
+  onEdit?: (ordem: OrdemProducao) => void
+  onDelete?: (ordem: OrdemProducao) => void
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
@@ -33,7 +35,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   isDragOver,
   onCardDragStart,
   onCardDragEnd,
-  draggedOrdemId
+  draggedOrdemId,
+  onEdit,
+  onDelete
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -79,6 +83,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               onDragStart={onCardDragStart}
               onDragEnd={onCardDragEnd}
               isDragging={draggedOrdemId === ordem.id}
+              onEdit={onEdit}
+              onDelete={onDelete}
             />
           ))
         )}

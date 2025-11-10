@@ -5,9 +5,11 @@ import { KanbanColumn } from './KanbanColumn'
 interface KanbanBoardProps {
   ordens: OrdemProducao[]
   onStatusChange: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => void
+  onEdit?: (ordem: OrdemProducao) => void
+  onDelete?: (ordem: OrdemProducao) => void
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ordens, onStatusChange }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ordens, onStatusChange, onEdit, onDelete }) => {
   const [draggedOrdem, setDraggedOrdem] = useState<string | null>(null)
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null)
 
@@ -59,6 +61,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ordens, onStatusChange
           onCardDragStart={handleDragStart}
           onCardDragEnd={handleDragEnd}
           draggedOrdemId={draggedOrdem}
+          onEdit={onEdit}
+          onDelete={onDelete}
         />
         <KanbanColumn
           titulo="Em andamento"
@@ -74,6 +78,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ordens, onStatusChange
           onCardDragStart={handleDragStart}
           onCardDragEnd={handleDragEnd}
           draggedOrdemId={draggedOrdem}
+          onEdit={onEdit}
+          onDelete={onDelete}
         />
         <KanbanColumn
           titulo="Executadas"
@@ -89,6 +95,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ordens, onStatusChange
           onCardDragStart={handleDragStart}
           onCardDragEnd={handleDragEnd}
           draggedOrdemId={draggedOrdem}
+          onEdit={onEdit}
+          onDelete={onDelete}
         />
         <KanbanColumn
           titulo="Canceladas"
@@ -104,6 +112,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ordens, onStatusChange
           onCardDragStart={handleDragStart}
           onCardDragEnd={handleDragEnd}
           draggedOrdemId={draggedOrdem}
+          onEdit={onEdit}
+          onDelete={onDelete}
         />
       </div>
     </div>

@@ -22,6 +22,8 @@ interface ProducaoStore {
   buscarFichaTecnica: (produtoId: string) => Promise<FichaTecnica | null>
   alterarStatusOrdem: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => void
   criarOrdemPendente: (dados: { produtoAcabadoId: string; produtoNome: string; quantidadeAProduzir: number }) => void
+  editarOrdem: (ordemId: string, dados: Partial<Pick<OrdemProducao, 'quantidadeProduzida' | 'status' | 'produtoNome'>>) => void
+  deletarOrdem: (ordemId: string) => void
   clearError: () => void
 }
 
@@ -161,6 +163,24 @@ export const useProducaoStore = create<ProducaoStore>((set, get) => ({
       status: 'PENDENTE'
     }
     set(state => ({ ordensProducao: [novaOrdem, ...state.ordensProducao] }))
+  }
+  ,
+
+  // Editar campos básicos da ordem localmente (MVP)
+  editarOrdem: (ordemId, dados) => {
+    set(state => ({
+      ordensProducao: state.ordensProducao.map(o =>
+        o.id === ordemId ? { ...o, ...dados } as OrdemProducao : o
+      )
+    }))
+  }
+  ,
+
+  // Deletar ordem localmente (MVP)
+  deletarOrdem: (ordemId) => {
+    set(state => ({
+      ordensProducao: state.ordensProducao.filter(o => o.id !== ordemId)
+    }))
   }
 }))
 

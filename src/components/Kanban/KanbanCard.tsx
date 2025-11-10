@@ -9,9 +9,11 @@ interface KanbanCardProps {
   onDragStart: (ordemId: string) => void
   onDragEnd: () => void
   isDragging: boolean
+  onEdit?: (ordem: OrdemProducao) => void
+  onDelete?: (ordem: OrdemProducao) => void
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ ordem, onStatusChange, onDragStart, onDragEnd, isDragging }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ ordem, onStatusChange, onDragStart, onDragEnd, isDragging, onEdit, onDelete }) => {
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -123,11 +125,23 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ ordem, onStatusChange, o
                   </button>
                 ))}
                 <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
-                <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <button 
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => {
+                    onEdit?.(ordem)
+                    setShowMenu(false)
+                  }}
+                >
                   <Edit3 className="w-3 h-3" />
                   <span>Editar</span>
                 </button>
-                <button className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <button 
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  onClick={() => {
+                    onDelete?.(ordem)
+                    setShowMenu(false)
+                  }}
+                >
                   <Trash2 className="w-3 h-3" />
                   <span>Excluir</span>
                 </button>

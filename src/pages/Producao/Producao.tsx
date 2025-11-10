@@ -18,6 +18,7 @@ import { cn } from '../../lib/utils'
 import { OrdemProducaoModal } from './OrdemProducaoModal'
 import { ProdutoAcabadoModal } from './ProdutoAcabadoModal'
 import { KanbanBoard } from '../../components/Kanban'
+import { EditOrdemModal } from './EditOrdemModal'
 
 export const Producao: React.FC = () => {
   const { 
@@ -37,6 +38,8 @@ export const Producao: React.FC = () => {
   const [ordemModalOpen, setOrdemModalOpen] = useState(false)
   const [produtoAcabadoModalOpen, setProdutoAcabadoModalOpen] = useState(false)
   const [, setSelectedOrdem] = useState<OrdemProducao | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [ordemEditando, setOrdemEditando] = useState<OrdemProducao | null>(null)
   // Novo estado local para controlar o carregamento inicial da página,
   // evitando que requisições feitas pelo modal ocultem toda a tela.
   const [loadingPagina, setLoadingPagina] = useState(true)
@@ -119,6 +122,20 @@ export const Producao: React.FC = () => {
       default:
         return <AlertTriangle className="w-4 h-4" />
     }
+  }
+
+  // Editar ordem (MVP): permite alterar quantidade produzida via prompt
+  const { editarOrdem, deletarOrdem } = useProducaoStore()
+
+  const handleEditOrdem = (ordem: OrdemProducao) => {
+    setOrdemEditando(ordem)
+    setEditModalOpen(true)
+  }
+
+  const handleDeleteOrdem = (ordem: OrdemProducao) => {
+    const confirmar = window.confirm(`Tem certeza que deseja excluir a ordem #${ordem.id} de "${ordem.produtoNome}"?`)
+    if (!confirmar) return
+    deletarOrdem(ordem.id)
   }
 
   // Mostra esqueleto apenas durante o carregamento inicial da página.
@@ -330,6 +347,8 @@ export const Producao: React.FC = () => {
         <KanbanBoard 
           ordens={ordensFiltradas} 
           onStatusChange={handleStatusChange}
+          onEdit={handleEditOrdem}
+          onDelete={handleDeleteOrdem}
         />
       )}
 
@@ -426,6 +445,20 @@ export const Producao: React.FC = () => {
           onClose={() => setProdutoAcabadoModalOpen(false)}
           onSuccess={() => {
             setProdutoAcabadoModalOpen(false)
+          }}
+        />
+      )}
+
+      {editModalOpen && ordemEditando && (
+        <EditOrdemModal
+          ordem={ordemEditando}
+          onClose={() => {
+            setEditModalOpen(false)
+            setOrdemEditando(null)
+          }}
+          onSuccess={() => {
+            setEditModalOpen(false)
+            setOrdemEditando(null)
           }}
         />
       )}
