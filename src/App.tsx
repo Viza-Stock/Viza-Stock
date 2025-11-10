@@ -37,7 +37,8 @@ function App() {
             <Layout />
           </ProtectedRoute>
         }>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          {/* Ao acessar a raiz, sempre redirecionar para a página de Login */}
+          <Route index element={<Navigate to="/login" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="produtos" element={<Produtos />} />
           <Route path="estoque" element={<Estoque />} />
