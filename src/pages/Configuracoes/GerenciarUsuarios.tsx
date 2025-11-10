@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useAuthStore, User, SystemRole } from '../../stores/authStore'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Users, UserPlus, Edit, Eye, ShieldCheck, Search, Trash } from 'lucide-react'
+import { useUserStore, ManagedUser, Department } from '../../stores/userStore'
 
-type Department = 'FATURAMENTO' | 'EMBALADORA' | 'EXTRUSORA' | 'TI' | 'DIRETORIA'
-type ManagedUser = User & { department: Department }
+// Tipos agora vêm do store para evitar duplicidade
 
 const createUserSchema = z.object({
   nome: z.string().min(2, 'Informe um nome válido'),
@@ -24,18 +24,17 @@ type CreateUserForm = z.infer<typeof createUserSchema>
 
 export const GerenciarUsuarios: React.FC = () => {
   const { user: currentUser } = useAuthStore()
-
-  const [users, setUsers] = useState<ManagedUser[]>([
-    { id: '0', nome: 'Root (Desenvolvedor)', email: 'root@viza.com', role: 'ADMINISTRADOR', systemRole: 'ROOT', department: 'TI' },
-    { id: '3', nome: 'Administrador do Sistema', email: 'admin@viza.com', role: 'ADMINISTRADOR', systemRole: 'ADMINISTRADOR', department: 'TI' },
-    { id: '2', nome: 'Gerente de Produção', email: 'gerente@viza.com', role: 'GERENTE_PRODUCAO', systemRole: 'PADRAO', department: 'EXTRUSORA' },
-    { id: '1', nome: 'Operador de Estoque', email: 'operador@viza.com', role: 'OPERADOR_ESTOQUE', systemRole: 'PADRAO', department: 'EMBALADORA' }
-  ])
+  const { users, addUser, updateUser, deleteUser, initDefaults } = useUserStore()
 
   const [viewUser, setViewUser] = useState<ManagedUser | null>(null)
   const [editUser, setEditUser] = useState<ManagedUser | null>(null)
-  const [deleteUser, setDeleteUser] = useState<ManagedUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null)
   const [query, setQuery] = useState('')
+
+  // Inicializa lista padrão somente se não houver dados persistidos
+  useEffect(() => {
+    initDefaults()
+  }, [initDefaults])
 
   const canCreateSystemRoles: SystemRole[] = useMemo(() => {
     if (currentUser?.systemRole === 'ROOT') return ['ROOT', 'ADMINISTRADOR', 'PADRAO']
@@ -89,7 +88,7 @@ export const GerenciarUsuarios: React.FC = () => {
       department: data.department,
       systemRole: data.systemRole
     }
-    setUsers(prev => [newUser, ...prev])
+    addUser(newUser)
     form.reset()
   }
 
@@ -262,7 +261,7 @@ export const GerenciarUsuarios: React.FC = () => {
                         title={canDeleteUser(u) ? 'Excluir' : 'Somente usuários ROOT podem excluir'}
                         aria-label={`Excluir usuário ${u.nome}`}
                         disabled={!canDeleteUser(u)}
-                        onClick={() => canDeleteUser(u) && setDeleteUser(u)}
+                        onClick={() => canDeleteUser(u) && setDeleteTarget(u)}
                         className={`inline-flex items-center justify-center h-8 px-3 rounded-md ${canDeleteUser(u) ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
                       >
                         <Trash className="w-4 h-4" />
@@ -376,25 +375,25 @@ export const GerenciarUsuarios: React.FC = () => {
       )}
 
       {/* Modal de Exclusão */}
-      {deleteUser && (
+      {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteUser(null)} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteTarget(null)} />
           <div className="relative z-10 w-full max-w-md rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 shadow-lg">
             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Excluir Usuário</h3>
-            <p className="text-sm text-gray-700 dark:text-gray-300">Tem certeza que deseja excluir o usuário <span className="font-semibold">{deleteUser.nome}</span>? Esta ação não pode ser desfeita.</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">Tem certeza que deseja excluir o usuário <span className="font-semibold">{deleteTarget.nome}</span>? Esta ação não pode ser desfeita.</p>
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 className="inline-flex items-center px-3 py-2 rounded border dark:border-gray-600"
-                onClick={() => setDeleteUser(null)}
+                onClick={() => setDeleteTarget(null)}
               >
                 Cancelar
               </button>
               <button
                 className="inline-flex items-center px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"
                 onClick={() => {
-                  if (!deleteUser) return
-                  setUsers(prev => prev.filter(usr => usr.id !== deleteUser.id))
-                  setDeleteUser(null)
+                  if (!deleteTarget) return
+                  deleteUser(deleteTarget.id)
+                  setDeleteTarget(null)
                 }}
               >
                 Excluir
