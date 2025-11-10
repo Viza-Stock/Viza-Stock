@@ -3,17 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, AlertCircle, LogIn } from 'lucide-react'
+import { User as UserIcon, AlertCircle, LogIn } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { PasswordInput } from './PasswordInput'
 import { LoadingSpinner } from './LoadingSpinner'
 
 // Schema de validação com Zod
 const loginSchema = z.object({
-  email: z
+  usuario: z
     .string()
-    .min(1, 'Email é obrigatório')
-    .email('Email inválido'),
+    .min(1, 'Usuário é obrigatório')
+    .min(3, 'Usuário deve ter pelo menos 3 caracteres')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Usuário deve conter apenas letras, números, ponto, hífen ou underscore'),
   password: z
     .string()
     .min(1, 'Senha é obrigatória')
@@ -81,42 +82,42 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       className="space-y-6"
       noValidate
     >
-      {/* Campo Email */}
+      {/* Campo Usuário */}
       <motion.div variants={fadeInUp}>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Email
+        <label htmlFor="usuario" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Usuário
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Mail className="h-5 w-5 text-gray-400" />
+            <UserIcon className="h-5 w-5 text-gray-400" />
           </div>
           <input
-            id="email"
-            type="email"
-            {...register('email')}
+            id="usuario"
+            type="text"
+            {...register('usuario')}
             className={cn(
               "block w-full pl-10 pr-3 py-3 border rounded-lg text-sm placeholder-gray-500",
               "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
               "transition-all duration-200",
-              errors.email 
+              errors.usuario 
                 ? "border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 dark:border-red-600 dark:text-red-400"
                 : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             )}
-            placeholder="seu@email.com"
+            placeholder="seu_usuario"
             disabled={isLoading}
-            aria-invalid={!!errors.email}
-            aria-describedby={errors.email ? "email-error" : undefined}
+            aria-invalid={!!errors.usuario}
+            aria-describedby={errors.usuario ? "usuario-error" : undefined}
           />
         </div>
-        {errors.email && (
+        {errors.usuario && (
           <motion.p 
-            id="email-error" 
+            id="usuario-error" 
             className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <AlertCircle className="h-4 w-4 mr-1" />
-            {errors.email.message}
+            {errors.usuario.message}
           </motion.p>
         )}
       </motion.div>

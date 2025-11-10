@@ -16,23 +16,23 @@ export const LoginContainer: React.FC<LoginContainerProps> = ({ onLoginSuccess }
   const [error, setError] = useState<string | null>(null)
   const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false)
 
-  const handleLogin = async (data: { email: string; password: string; rememberMe?: boolean }) => {
+  const handleLogin = async (data: { usuario: string; password: string; rememberMe?: boolean }) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const success = await useAuthStore.getState().login(data.email, data.password)
+      const success = await useAuthStore.getState().login(data.usuario, data.password)
       if (success) {
         toast.success('Login realizado com sucesso!')
         const user = useAuthStore.getState().user
         onLoginSuccess(user)
       } else {
-        setError(useAuthStore.getState().error || 'Credenciais inválidas. Verifique seu email e senha.')
+        setError(useAuthStore.getState().error || 'Credenciais inválidas. Verifique seu usuário e senha.')
         toast.error('Erro ao fazer login')
       }
       
     } catch (err) {
-      setError('Credenciais inválidas. Verifique seu email e senha.')
+      setError('Credenciais inválidas. Verifique seu usuário e senha.')
       toast.error('Erro ao fazer login')
     } finally {
       setIsLoading(false)

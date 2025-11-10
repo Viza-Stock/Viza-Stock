@@ -42,7 +42,7 @@ describe('Login Component', () => {
     // Verificar se os elementos principais estão presentes
     expect(screen.getByText('Viza Stock')).toBeInTheDocument()
     expect(screen.getByText('Sistema de Controle de Estoque')).toBeInTheDocument()
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
+    expect(screen.getByLabelText('Usuário')).toBeInTheDocument()
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: /lembrar-me/i })).toBeInTheDocument()
@@ -59,26 +59,26 @@ describe('Login Component', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText('Email é obrigatório')).toBeInTheDocument()
+      expect(screen.getByText('Usuário é obrigatório')).toBeInTheDocument()
       expect(screen.getByText('Senha é obrigatória')).toBeInTheDocument()
     })
   })
 
-  it('shows validation error for invalid email format', async () => {
+  it('shows validation error for short username', async () => {
     render(
       <BrowserRouter>
         <Login />
       </BrowserRouter>
     )
 
-    const emailInput = screen.getByLabelText('Email')
-    fireEvent.change(emailInput, { target: { value: 'email-invalido' } })
+    const usuarioInput = screen.getByLabelText('Usuário')
+    fireEvent.change(usuarioInput, { target: { value: 'ab' } })
 
     const submitButton = screen.getByRole('button', { name: /entrar/i })
     fireEvent.click(submitButton)
 
     await waitFor(() => {
-      expect(screen.getByText('Email inválido')).toBeInTheDocument()
+      expect(screen.getByText('Usuário deve ter pelo menos 3 caracteres')).toBeInTheDocument()
     })
   })
 
@@ -101,33 +101,5 @@ describe('Login Component', () => {
     expect(passwordInput).toHaveAttribute('type', 'password')
   })
 
-  it('auto-fills demo credentials', () => {
-    render(
-      <BrowserRouter>
-        <Login />
-      </BrowserRouter>
-    )
-
-    const emailInput = screen.getByLabelText('Email') as HTMLInputElement
-    const passwordInput = screen.getByLabelText('Senha') as HTMLInputElement
-    // Clicar no botão de demo para preencher automaticamente
-    const demoAdminButton = screen.getByText(/Administrador/i)
-    fireEvent.click(demoAdminButton)
-
-    // Verificar se os campos foram preenchidos após clicar
-    expect(emailInput.value).toBe('admin@viza.com')
-    expect(passwordInput.value).toBe('admin123')
-  })
-
-  it('has demo login buttons for different user roles', () => {
-    render(
-      <BrowserRouter>
-        <Login />
-      </BrowserRouter>
-    )
-
-    expect(screen.getByText(/Administrador/i)).toBeInTheDocument()
-    expect(screen.getByText('Gerente de Produção')).toBeInTheDocument()
-    expect(screen.getByText('Operador de Estoque')).toBeInTheDocument()
-  })
+  // Removidos testes de credenciais demo obsoletos
 })

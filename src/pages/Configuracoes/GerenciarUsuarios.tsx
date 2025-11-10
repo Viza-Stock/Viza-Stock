@@ -10,6 +10,10 @@ import { useUserStore, ManagedUser, Department } from '../../stores/userStore'
 
 const createUserSchema = z.object({
   nome: z.string().min(2, 'Informe um nome válido'),
+  usuario: z.string()
+    .min(1, 'Usuário é obrigatório')
+    .min(3, 'Usuário deve ter pelo menos 3 caracteres')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Usuário deve conter apenas letras, números, ponto, hífen ou underscore'),
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Mínimo de 6 caracteres'),
   department: z.enum(['FATURAMENTO', 'EMBALADORA', 'EXTRUSORA', 'TI', 'DIRETORIA'], {
@@ -66,6 +70,7 @@ export const GerenciarUsuarios: React.FC = () => {
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       nome: '',
+      usuario: '',
       email: '',
       senha: '',
       department: 'FATURAMENTO',
@@ -82,22 +87,24 @@ export const GerenciarUsuarios: React.FC = () => {
     const newUser: ManagedUser = {
       id: String(Date.now()),
       nome: data.nome,
+      usuario: data.usuario,
       email: data.email,
       // Papel funcional removido do formulário: definir padrão
       role: 'OPERADOR_ESTOQUE',
       department: data.department,
-      systemRole: data.systemRole
+      systemRole: data.systemRole,
+      senha: data.senha
     }
     addUser(newUser)
     form.reset()
   }
 
-  // Filtro de busca simples por nome/email/departamento/role
+  // Filtro de busca simples por nome/usuario/email/departamento/role
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return users
     return users.filter((u) =>
-      [u.nome, u.email, u.department, u.role, u.systemRole]
+      [u.nome, u.usuario, u.email, u.department, u.role, u.systemRole]
         .join(' ')
         .toLowerCase()
         .includes(q)
@@ -144,7 +151,7 @@ export const GerenciarUsuarios: React.FC = () => {
               id="user-search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por nome, email, departamento ou papel"
+              placeholder="Buscar por nome, usuário, email, departamento ou papel"
               className="w-full pl-9 pr-3 py-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -174,6 +181,11 @@ export const GerenciarUsuarios: React.FC = () => {
             <label className="block text-sm font-medium mb-1">Nome</label>
             <input {...form.register('nome')} className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600" />
             {form.formState.errors.nome && <p className="text-red-500 text-xs mt-1">{form.formState.errors.nome.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Usuário</label>
+            <input type="text" {...form.register('usuario')} className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600" />
+            {form.formState.errors.usuario && <p className="text-red-500 text-xs mt-1">{form.formState.errors.usuario.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
@@ -219,6 +231,7 @@ export const GerenciarUsuarios: React.FC = () => {
           <thead className="sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur">
             <tr className="text-left border-b dark:border-gray-700">
               <th className="py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Nome</th>
+              <th className="py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Usuário</th>
               <th className="py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Email</th>
               <th className="py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Acesso (Sistema)</th>
               <th className="py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Departamento</th>
@@ -232,6 +245,7 @@ export const GerenciarUsuarios: React.FC = () => {
               return (
                 <tr key={u.id} className="border-b dark:border-gray-700 odd:bg-gray-50 dark:odd:bg-gray-700/40 hover:bg-gray-100/70 dark:hover:bg-gray-700 transition-colors">
                   <td className="py-3 px-4 text-gray-900 dark:text-gray-100">{u.nome}</td>
+                  <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{u.usuario}</td>
                   <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{u.email}</td>
                   <td className="py-3 px-4"><SystemRoleBadge role={u.systemRole} /></td>
                   <td className="py-3 px-4"><DepartmentBadge dep={u.department} /></td>
@@ -283,6 +297,7 @@ export const GerenciarUsuarios: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Detalhes do Usuário</h3>
             <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
               <p><span className="font-medium">Nome:</span> {viewUser.nome}</p>
+              <p><span className="font-medium">Usuário:</span> {viewUser.usuario}</p>
               <p><span className="font-medium">Email:</span> {viewUser.email}</p>
               <p><span className="font-medium">Acesso (Sistema):</span> {viewUser.systemRole}</p>
               <p><span className="font-medium">Departamento:</span> {viewUser.department}</p>
@@ -316,11 +331,29 @@ export const GerenciarUsuarios: React.FC = () => {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1">Usuário</label>
+                <input
+                  type="text"
+                  value={editUser.usuario}
+                  onChange={(e) => setEditUser(prev => prev ? { ...prev, usuario: e.target.value } as ManagedUser : prev)}
+                  className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Email</label>
                 <input
                   type="email"
                   value={editUser.email}
                   onChange={(e) => setEditUser(prev => prev ? { ...prev, email: e.target.value } as ManagedUser : prev)}
+                  className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Senha</label>
+                <input
+                  type="password"
+                  value={editUser.senha}
+                  onChange={(e) => setEditUser(prev => prev ? { ...prev, senha: e.target.value } as ManagedUser : prev)}
                   className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
                 />
               </div>

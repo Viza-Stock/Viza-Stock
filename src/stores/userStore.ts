@@ -4,7 +4,9 @@ import type { User, SystemRole } from './authStore'
 
 // Tipos de apoio para gerenciamento de usuários
 export type Department = 'FATURAMENTO' | 'EMBALADORA' | 'EXTRUSORA' | 'TI' | 'DIRETORIA'
-export type ManagedUser = User & { department: Department }
+// Ambiente de desenvolvimento: armazenamos senha em texto para mock.
+// Em produção, isso deve vir do backend e nunca ser persistido em texto claro.
+export type ManagedUser = User & { department: Department; senha: string }
 
 interface UserManagementState {
   users: ManagedUser[]
@@ -18,10 +20,10 @@ interface UserManagementState {
 
 // Lista padrão usada na primeira inicialização (sem backend)
 const DEFAULT_USERS: ManagedUser[] = [
-  { id: '0', nome: 'Root (Desenvolvedor)', email: 'root@viza.com', role: 'ADMINISTRADOR', systemRole: 'ROOT', department: 'TI' },
-  { id: '3', nome: 'Administrador do Sistema', email: 'admin@viza.com', role: 'ADMINISTRADOR', systemRole: 'ADMINISTRADOR', department: 'TI' },
-  { id: '2', nome: 'Gerente de Produção', email: 'gerente@viza.com', role: 'GERENTE_PRODUCAO', systemRole: 'PADRAO', department: 'EXTRUSORA' },
-  { id: '1', nome: 'Operador de Estoque', email: 'operador@viza.com', role: 'OPERADOR_ESTOQUE', systemRole: 'PADRAO', department: 'EMBALADORA' }
+  { id: '0', nome: 'Root (Desenvolvedor)', usuario: 'root', email: 'root@viza.com', role: 'ADMINISTRADOR', systemRole: 'ROOT', department: 'TI', senha: 'root123' },
+  { id: '3', nome: 'Administrador do Sistema', usuario: 'admin', email: 'admin@viza.com', role: 'ADMINISTRADOR', systemRole: 'ADMINISTRADOR', department: 'TI', senha: 'admin123' },
+  { id: '2', nome: 'Gerente de Produção', usuario: 'gerente', email: 'gerente@viza.com', role: 'GERENTE_PRODUCAO', systemRole: 'PADRAO', department: 'EXTRUSORA', senha: 'gerente123' },
+  { id: '1', nome: 'Operador de Estoque', usuario: 'operador', email: 'operador@viza.com', role: 'OPERADOR_ESTOQUE', systemRole: 'PADRAO', department: 'EMBALADORA', senha: 'operador123' }
 ]
 
 export const useUserStore = create<UserManagementState>()(

@@ -6,6 +6,7 @@ export type SystemRole = 'ROOT' | 'ADMINISTRADOR' | 'PADRAO'
 export interface User {
   id: string
   nome: string
+  usuario: string
   email: string
   // Papel funcional já existente na aplicação (operador, gerente, administrador funcional)
   role: 'OPERADOR_ESTOQUE' | 'GERENTE_PRODUCAO' | 'ADMINISTRADOR'
@@ -22,7 +23,7 @@ interface AuthStore {
   error: string | null
 
   // Ações
-  login: (email: string, senha: string) => Promise<boolean>
+  login: (usuario: string, senha: string) => Promise<boolean>
   logout: () => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
@@ -35,6 +36,7 @@ const MOCK_USERS = [
   {
     id: '0',
     nome: 'Root (Desenvolvedor)',
+    usuario: 'root',
     email: 'root@viza.com',
     senha: 'root123',
     role: 'ADMINISTRADOR' as const, // papel funcional
@@ -44,6 +46,7 @@ const MOCK_USERS = [
   {
     id: '3',
     nome: 'Administrador do Sistema',
+    usuario: 'admin',
     email: 'admin@viza.com',
     senha: 'admin123',
     role: 'ADMINISTRADOR' as const,
@@ -53,6 +56,7 @@ const MOCK_USERS = [
   {
     id: '1',
     nome: 'Operador de Estoque',
+    usuario: 'operador',
     email: 'operador@viza.com',
     senha: 'operador123',
     role: 'OPERADOR_ESTOQUE' as const,
@@ -61,6 +65,7 @@ const MOCK_USERS = [
   {
     id: '2',
     nome: 'Gerente de Produção',
+    usuario: 'gerente',
     email: 'gerente@viza.com',
     senha: 'gerente123',
     role: 'GERENTE_PRODUCAO' as const,
@@ -79,7 +84,7 @@ export const useAuthStore = create<AuthStore>()(
       error: null,
 
       // Login com validação mockada
-      login: async (email: string, senha: string) => {
+      login: async (usuario: string, senha: string) => {
         const { setLoading, setError } = get()
         
         try {
@@ -89,11 +94,38 @@ export const useAuthStore = create<AuthStore>()(
           // Simular delay de rede
           await new Promise(resolve => setTimeout(resolve, 1000))
 
-          // Validar credenciais
-          const user = MOCK_USERS.find(u => u.email === email && u.senha === senha)
-          
+          // Validar credenciais: aceita login por usuário (preferencial) e, por compatibilidade, por email
+          let user = MOCK_USERS.find(u => (u.usuario === usuario || u.email === usuario) && u.senha === senha)
+
+          // Se não encontrar nos mocks, tentar usuários persistidos no frontend (Gerenciar Usuários)
+          if (!user && typeof window !== 'undefined') {
+            try {
+              const raw = window.localStorage.getItem('viza-users-storage')
+              if (raw) {
+                const parsed = JSON.parse(raw)
+                const persistedUsers = parsed?.state?.users as Array<{
+                  id: string; nome: string; usuario: string; email: string; role: User['role']; systemRole: SystemRole; department?: string; senha?: string
+                }> || []
+                const found = persistedUsers.find(u => (u.usuario === usuario || u.email === usuario) && u.senha === senha)
+                if (found) {
+                  user = {
+                    id: found.id,
+                    nome: found.nome,
+                    usuario: found.usuario,
+                    email: found.email,
+                    role: found.role,
+                    systemRole: found.systemRole,
+                    senha: found.senha || ''
+                  }
+                }
+              }
+            } catch {
+              // Ignorar erros de leitura do localStorage
+            }
+          }
+
           if (!user) {
-            setError('Email ou senha inválidos')
+            setError('Usuário ou senha inválidos')
             setLoading(false)
             return false
           }
@@ -106,6 +138,7 @@ export const useAuthStore = create<AuthStore>()(
             user: {
               id: user.id,
               nome: user.nome,
+              usuario: user.usuario,
               email: user.email,
               role: user.role,
               systemRole: user.systemRole
