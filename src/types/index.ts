@@ -60,6 +60,17 @@ export interface OrdemProducaoRequestDTO {
   quantidadeAProduzir: number
 }
 
+// DTO para criação de ordem de produção persistida (backend)
+export interface OrdemProducaoCreateDTO {
+  produtoAcabadoId: string
+  quantidadeAProduzir: number
+}
+
+// DTO para atualização de status da ordem de produção (backend)
+export interface OrdemProducaoStatusUpdateDTO {
+  status: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA'
+}
+
 // Tipos para UI
 export interface Notification {
   id: string

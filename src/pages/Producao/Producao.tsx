@@ -19,6 +19,7 @@ import { OrdemProducaoModal } from './OrdemProducaoModal'
 import { ProdutoAcabadoModal } from './ProdutoAcabadoModal'
 import { KanbanBoard } from '../../components/Kanban'
 import { EditOrdemModal } from './EditOrdemModal'
+import { speak } from '../../utils/voice'
 
 export const Producao: React.FC = () => {
   const { 
@@ -26,9 +27,10 @@ export const Producao: React.FC = () => {
     // loading global do store não deve bloquear a página inteira
     // loading,
     fetchFichasTecnicas,
+    fetchOrdensProducao,
     alterarStatusOrdem,
     verificarViabilidade,
-    executarOrdem
+    // executarOrdem
   } = useProducaoStore()
   const { produtos, fetchProdutos } = useProdutoStore()
   // Removido uso de notificações não utilizado para evitar avisos de lint
@@ -50,10 +52,11 @@ export const Producao: React.FC = () => {
     // Carregamento inicial: aguarda as duas chamadas e então libera a página
     Promise.all([
       fetchFichasTecnicas(),
-      fetchProdutos()
+      fetchProdutos(),
+      fetchOrdensProducao()
     ]).finally(() => setLoadingPagina(false))
     // Dependemos apenas das funções (estáveis no zustand)
-  }, [fetchFichasTecnicas, fetchProdutos])
+  }, [fetchFichasTecnicas, fetchProdutos, fetchOrdensProducao])
 
   // Filtrar ordens de produção
   const ordensFiltradas = ordensProducao.filter(ordem => {
@@ -82,10 +85,13 @@ export const Producao: React.FC = () => {
           alert('Quantidade insuficiente em estoque para executar a ordem!')
           return
         }
-        await executarOrdem({ produtoAcabadoId: ordem.produtoAcabadoId, quantidadeAProduzir: ordem.quantidadeProduzida })
-        alterarStatusOrdem(ordemId, 'EXECUTADA')
+        await alterarStatusOrdem(ordemId, 'EXECUTADA')
       } else {
-        alterarStatusOrdem(ordemId, novoStatus)
+        await alterarStatusOrdem(ordemId, novoStatus)
+        // Aviso por voz quando uma ordem é movida para Pendentes
+        if (novoStatus === 'PENDENTE') {
+          speak('Você tem novas ordens de produção')
+        }
       }
     
     } catch (error) {
@@ -132,10 +138,15 @@ export const Producao: React.FC = () => {
     setEditModalOpen(true)
   }
 
-  const handleDeleteOrdem = (ordem: OrdemProducao) => {
+  const handleDeleteOrdem = async (ordem: OrdemProducao) => {
     const confirmar = window.confirm(`Tem certeza que deseja excluir a ordem #${ordem.id} de "${ordem.produtoNome}"?`)
     if (!confirmar) return
-    deletarOrdem(ordem.id)
+    try {
+      await deletarOrdem(ordem.id)
+    } catch (error) {
+      console.error('Erro ao deletar ordem:', error)
+      alert('Erro ao deletar ordem de produção')
+    }
   }
 
   // Mostra esqueleto apenas durante o carregamento inicial da página.

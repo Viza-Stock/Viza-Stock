@@ -7,6 +7,7 @@ import { useProducaoStore } from '../../stores/producaoStore'
 import { useNotifications } from '../../stores/uiStore'
 import { cn } from '../../lib/utils'
 import { FullScreenAlert } from '../../components/FullScreenAlert'
+import { speak } from '../../utils/voice'
 
 const ordemProducaoSchema = z.object({
   fichaTecnicaId: z.string().min(1, 'Selecione uma ficha técnica'),
@@ -90,7 +91,7 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
       }
 
       // Criar ordem como PENDENTE (fluxo correto)
-      criarOrdemPendente({
+      await criarOrdemPendente({
         produtoAcabadoId: fichaSelecionada.produtoAcabado.id,
         produtoNome: fichaSelecionada.produtoAcabado.nome,
         quantidadeAProduzir: data.quantidade
@@ -101,6 +102,8 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
         title: 'Ordem criada como Pendente',
         message: `A ordem de produção foi criada e está em Pendentes. Ao dar Start, ela irá para Em andamento.`
       })
+      // Aviso por voz ao criar nova ordem em Pendentes
+      speak('Você tem novas ordens de produção')
       
       onSuccess()
     } catch {

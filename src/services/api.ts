@@ -6,6 +6,8 @@ import type {
   ProdutoEntradaDTO,
   ProdutoAcabadoRequestDTO,
   OrdemProducaoRequestDTO,
+  OrdemProducaoCreateDTO,
+  OrdemProducaoStatusUpdateDTO,
   FichaTecnica,
   MovimentacaoEstoque,
   OrdemProducao
@@ -123,6 +125,8 @@ const mockProdutos: Produto[] = [
 
 // Mock de fichas técnicas (apenas quando USE_MOCKS === 'true')
 const mockFichasTecnicas: FichaTecnica[] = []
+// Mock para ordens de produção persistidas quando API não estiver disponível
+const mockOrdensProducao: OrdemProducao[] = []
 
 // Serviços de Produtos
 export const produtosService = {
@@ -440,6 +444,106 @@ export const producaoService = {
           throw new Error('Ficha técnica não encontrada')
         }
         return ficha
+      }
+      throw new Error(getApiErrorMessage(error))
+    }
+  }
+  ,
+
+  // CRUD de Ordens de Produção (persistido no backend)
+  // Listar ordens
+  listarOrdensProducao: async (): Promise<OrdemProducao[]> => {
+    try {
+      const response = await api.get('/producao/ordens')
+      // Converter datas para objeto Date e normalizar status
+      const ordens: OrdemProducao[] = (response.data || []).map((o: any) => ({
+        id: String(o.id),
+        produtoAcabadoId: String(o.produtoAcabadoId ?? o.produtoId ?? o.produtoAcabado?.id ?? ''),
+        produtoNome: String(o.produtoNome ?? o.produtoAcabadoNome ?? o.produtoAcabado?.nome ?? ''),
+        quantidadeProduzida: Number(o.quantidadeProduzida ?? o.quantidadeAProduzir ?? 0),
+        dataExecucao: o.dataExecucao ? new Date(o.dataExecucao) : new Date(),
+        status: String(o.status ?? 'PENDENTE') as OrdemProducao['status']
+      }))
+      return ordens
+    } catch (error) {
+      if (shouldUseMocks()) {
+        console.warn('API não disponível, usando ordens de produção mock:', error)
+        return mockOrdensProducao
+      }
+      throw new Error(getApiErrorMessage(error))
+    }
+  },
+
+  // Criar nova ordem (PENDENTE por padrão)
+  criarOrdemPersistida: async (dto: OrdemProducaoCreateDTO): Promise<OrdemProducao> => {
+    try {
+      const response = await api.post('/producao/ordens', dto)
+      const o = response.data
+      const ordem: OrdemProducao = {
+        id: String(o.id),
+        produtoAcabadoId: String(o.produtoAcabadoId ?? dto.produtoAcabadoId),
+        produtoNome: String(o.produtoNome ?? ''),
+        quantidadeProduzida: Number(o.quantidadeProduzida ?? dto.quantidadeAProduzir),
+        dataExecucao: o.dataExecucao ? new Date(o.dataExecucao) : new Date(),
+        status: String(o.status ?? 'PENDENTE') as OrdemProducao['status']
+      }
+      return ordem
+    } catch (error) {
+      if (shouldUseMocks()) {
+        console.warn('API não disponível, criando ordem mock:', error)
+        const ordem: OrdemProducao = {
+          id: `OP-${Date.now()}`,
+          produtoAcabadoId: dto.produtoAcabadoId,
+          produtoNome: (mockProdutos.find(p => p.id === dto.produtoAcabadoId)?.nome) || '',
+          quantidadeProduzida: dto.quantidadeAProduzir,
+          dataExecucao: new Date(),
+          status: 'PENDENTE'
+        }
+        mockOrdensProducao.unshift(ordem)
+        return ordem
+      }
+      throw new Error(getApiErrorMessage(error))
+    }
+  },
+
+  // Atualizar status da ordem (EXECUTADA integrará consumo/produção no backend)
+  atualizarStatusOrdem: async (id: string, status: OrdemProducaoStatusUpdateDTO['status']): Promise<OrdemProducao> => {
+    try {
+      const response = await api.patch(`/producao/ordens/${id}/status`, { status })
+      const o = response.data
+      const ordem: OrdemProducao = {
+        id: String(o.id ?? id),
+        produtoAcabadoId: String(o.produtoAcabadoId ?? o.produtoId ?? ''),
+        produtoNome: String(o.produtoNome ?? ''),
+        quantidadeProduzida: Number(o.quantidadeProduzida ?? 0),
+        dataExecucao: o.dataExecucao ? new Date(o.dataExecucao) : new Date(),
+        status: String(o.status ?? status) as OrdemProducao['status']
+      }
+      return ordem
+    } catch (error) {
+      if (shouldUseMocks()) {
+        console.warn('API não disponível, atualizando status em ordens mock:', error)
+        const idx = mockOrdensProducao.findIndex(o => o.id === id)
+        if (idx >= 0) {
+          mockOrdensProducao[idx] = { ...mockOrdensProducao[idx], status }
+          return mockOrdensProducao[idx]
+        }
+        throw new Error('Ordem não encontrada (mock)')
+      }
+      throw new Error(getApiErrorMessage(error))
+    }
+  },
+
+  // Deletar ordem
+  deletarOrdem: async (id: string): Promise<void> => {
+    try {
+      await api.delete(`/producao/ordens/${id}`)
+    } catch (error) {
+      if (shouldUseMocks()) {
+        console.warn('API não disponível, removendo ordem do mock:', error)
+        const idx = mockOrdensProducao.findIndex(o => o.id === id)
+        if (idx >= 0) mockOrdensProducao.splice(idx, 1)
+        return
       }
       throw new Error(getApiErrorMessage(error))
     }

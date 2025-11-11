@@ -16,14 +16,15 @@ interface ProducaoStore {
 
   // Ações
   fetchFichasTecnicas: () => Promise<void>
+  fetchOrdensProducao: () => Promise<void>
   criarProdutoAcabado: (produto: ProdutoAcabadoRequestDTO) => Promise<void>
   executarOrdem: (ordem: OrdemProducaoRequestDTO) => Promise<void>
   verificarViabilidade: (produtoId: string, quantidade: number) => Promise<boolean>
   buscarFichaTecnica: (produtoId: string) => Promise<FichaTecnica | null>
-  alterarStatusOrdem: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => void
-  criarOrdemPendente: (dados: { produtoAcabadoId: string; produtoNome: string; quantidadeAProduzir: number }) => void
+  alterarStatusOrdem: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => Promise<void>
+  criarOrdemPendente: (dados: { produtoAcabadoId: string; produtoNome: string; quantidadeAProduzir: number }) => Promise<void>
   editarOrdem: (ordemId: string, dados: Partial<Pick<OrdemProducao, 'quantidadeProduzida' | 'status' | 'produtoNome'>>) => void
-  deletarOrdem: (ordemId: string) => void
+  deletarOrdem: (ordemId: string) => Promise<void>
   clearError: () => void
 }
 
@@ -43,6 +44,22 @@ export const useProducaoStore = create<ProducaoStore>((set, get) => ({
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Erro ao carregar fichas técnicas',
+        loading: false 
+      })
+    }
+  },
+
+  // Buscar ordens de produção persistidas no backend
+  fetchOrdensProducao: async () => {
+    set({ loading: true, error: null })
+    try {
+      const ordens = await producaoService.listarOrdensProducao()
+      // Garantir ordenação por data mais recente primeiro
+      ordens.sort((a, b) => b.dataExecucao.getTime() - a.dataExecucao.getTime())
+      set({ ordensProducao: ordens, loading: false })
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Erro ao carregar ordens de produção',
         loading: false 
       })
     }
@@ -72,21 +89,9 @@ export const useProducaoStore = create<ProducaoStore>((set, get) => ({
     set({ loading: true, error: null })
     try {
       await producaoService.executarOrdem(ordem)
-      
-      // Adicionar ordem ao histórico local
-      const novaOrdem: OrdemProducao = {
-        id: `OP-${Date.now()}`,
-        produtoAcabadoId: ordem.produtoAcabadoId,
-        produtoNome: '', // Será preenchido pela API
-        quantidadeProduzida: ordem.quantidadeAProduzir,
-        dataExecucao: new Date(),
-        status: 'EXECUTADA'
-      }
-
-      set(state => ({
-        ordensProducao: [novaOrdem, ...state.ordensProducao],
-        loading: false
-      }))
+      // A execução é registrada pelo backend; recarregar ordens
+      await get().fetchOrdensProducao()
+      set({ loading: false })
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Erro ao executar ordem de produção',
@@ -143,26 +148,42 @@ export const useProducaoStore = create<ProducaoStore>((set, get) => ({
   ,
 
   // Alterar status de uma ordem de produção (apenas na store local por enquanto)
-  alterarStatusOrdem: (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => {
-    set(state => ({
-      ordensProducao: state.ordensProducao.map(o =>
-        o.id === ordemId ? { ...o, status: novoStatus } : o
-      )
-    }))
+  alterarStatusOrdem: async (ordemId: string, novoStatus: 'PENDENTE' | 'EM_ANDAMENTO' | 'EXECUTADA' | 'CANCELADA') => {
+    set({ loading: true, error: null })
+    try {
+      const atualizada = await producaoService.atualizarStatusOrdem(ordemId, novoStatus)
+      set(state => ({
+        ordensProducao: state.ordensProducao.map(o => o.id === ordemId ? atualizada : o),
+        loading: false
+      }))
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Erro ao atualizar status da ordem',
+        loading: false 
+      })
+      throw error
+    }
   }
   ,
 
   // Criar ordem PENDENTE localmente (fluxo correto: cria -> start para EM_ANDAMENTO -> executar -> EXECUTADA)
-  criarOrdemPendente: ({ produtoAcabadoId, produtoNome, quantidadeAProduzir }) => {
-    const novaOrdem: OrdemProducao = {
-      id: `OP-${Date.now()}`,
-      produtoAcabadoId,
-      produtoNome,
-      quantidadeProduzida: quantidadeAProduzir,
-      dataExecucao: new Date(),
-      status: 'PENDENTE'
+  criarOrdemPendente: async ({ produtoAcabadoId, produtoNome, quantidadeAProduzir }) => {
+    set({ loading: true, error: null })
+    try {
+      const criada = await producaoService.criarOrdemPersistida({ produtoAcabadoId, quantidadeAProduzir })
+      // Preencher produtoNome se vier vazio do backend
+      const ordemFinal: OrdemProducao = {
+        ...criada,
+        produtoNome: criada.produtoNome || produtoNome
+      }
+      set(state => ({ ordensProducao: [ordemFinal, ...state.ordensProducao], loading: false }))
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Erro ao criar ordem de produção',
+        loading: false 
+      })
+      throw error
     }
-    set(state => ({ ordensProducao: [novaOrdem, ...state.ordensProducao] }))
   }
   ,
 
@@ -177,10 +198,21 @@ export const useProducaoStore = create<ProducaoStore>((set, get) => ({
   ,
 
   // Deletar ordem localmente (MVP)
-  deletarOrdem: (ordemId) => {
-    set(state => ({
-      ordensProducao: state.ordensProducao.filter(o => o.id !== ordemId)
-    }))
+  deletarOrdem: async (ordemId) => {
+    set({ loading: true, error: null })
+    try {
+      await producaoService.deletarOrdem(ordemId)
+      set(state => ({
+        ordensProducao: state.ordensProducao.filter(o => o.id !== ordemId),
+        loading: false
+      }))
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Erro ao deletar ordem de produção',
+        loading: false 
+      })
+      throw error
+    }
   }
 }))
 
