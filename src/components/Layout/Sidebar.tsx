@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
@@ -61,7 +61,11 @@ const menuItems = [
 
 export const Sidebar: React.FC = () => {
   const location = useLocation()
-  const { sidebarOpen, toggleSidebar } = useUIStore()
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore()
+
+  useEffect(() => {
+    if (window.innerWidth < 1024) setSidebarOpen(false)
+  }, [location.pathname, setSidebarOpen])
 
   return (
     <>
@@ -125,6 +129,7 @@ export const Sidebar: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={() => { if (window.innerWidth < 1024) setSidebarOpen(false) }}
                 className={cn(
                   "flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-200 group",
                   isActive
@@ -177,3 +182,4 @@ export const Sidebar: React.FC = () => {
     </>
   )
 }
+
