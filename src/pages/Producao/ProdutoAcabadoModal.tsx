@@ -6,6 +6,7 @@ import { X, Package, CheckCircle } from 'lucide-react'
 import { useProducaoStore } from '../../stores/producaoStore'
 import { useNotifications } from '../../stores/uiStore'
 import { cn } from '../../lib/utils'
+import { FullScreenAlert } from '../../components/FullScreenAlert'
 
 const produtoAcabadoSchema = z.object({
   fichaTecnicaId: z.string().min(1, 'Selecione uma ficha técnica'),
@@ -26,6 +27,8 @@ export const ProdutoAcabadoModal: React.FC<ProdutoAcabadoModalProps> = ({
 }) => {
   const { fichasTecnicas, fetchFichasTecnicas, verificarViabilidade, executarOrdem } = useProducaoStore()
   const { addNotification } = useNotifications()
+  const [showInsufficientAlert, setShowInsufficientAlert] = React.useState(false)
+  const [checking, setChecking] = React.useState(false)
 
   const {
     register,
@@ -67,11 +70,8 @@ export const ProdutoAcabadoModal: React.FC<ProdutoAcabadoModalProps> = ({
 
       const viavel = await verificarViabilidade(ficha.produtoAcabado.id, data.quantidade)
       if (!viavel) {
-        addNotification({
-          type: 'error',
-          title: 'Produção inviável',
-          message: 'Não há estoque suficiente dos componentes para esta produção.'
-        })
+        // Exibir alerta em tela cheia ao tentar efetuar a ordem sem estoque suficiente ou sem matéria-prima cadastrada
+        setShowInsufficientAlert(true)
         return
       }
 
@@ -95,6 +95,33 @@ export const ProdutoAcabadoModal: React.FC<ProdutoAcabadoModalProps> = ({
       })
     }
   }
+
+  // Verificação automática de estoque ao selecionar ficha técnica ou alterar quantidade
+  useEffect(() => {
+    let timer: number | undefined
+    const run = async () => {
+      if (!fichaSelecionada || !watchedQuantidade || watchedQuantidade <= 0) {
+        setShowInsufficientAlert(false)
+        return
+      }
+      setChecking(true)
+      try {
+        const viavel = await verificarViabilidade(fichaSelecionada.produtoAcabado.id, watchedQuantidade)
+        setShowInsufficientAlert(!viavel)
+      } catch {
+        setShowInsufficientAlert(false)
+      } finally {
+        setChecking(false)
+      }
+    }
+
+    // Debounce rápido para evitar chamadas em excesso
+    timer = window.setTimeout(run, 300)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedFichaTecnicaId, watchedQuantidade])
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -245,6 +272,18 @@ export const ProdutoAcabadoModal: React.FC<ProdutoAcabadoModalProps> = ({
           </div>
         </form>
       </div>
+      {showInsufficientAlert && (
+        <FullScreenAlert
+          title="Estoque insuficiente para produção"
+          message={
+            fichaSelecionada && watchedQuantidade
+              ? `Não há estoque suficiente dos componentes para produzir ${watchedQuantidade.toLocaleString('pt-BR')} ${fichaSelecionada.produtoAcabado.unidadeMedida} do produto "${fichaSelecionada.produtoAcabado.nome}".`
+              : 'Não há estoque suficiente para a produção.'
+          }
+          onConfirm={() => setShowInsufficientAlert(false)}
+          confirmText="Ok, estou ciente disso"
+        />
+      )}
     </div>
   )
 }

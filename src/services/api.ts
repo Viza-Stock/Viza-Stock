@@ -397,10 +397,14 @@ export const producaoService = {
         console.warn('API não disponível, simulando verificação de viabilidade:', error)
         const ficha = mockFichasTecnicas.find(ft => ft.produtoAcabado.id === produtoId)
         if (!ficha) return false
-        // Checar se todas as matérias-primas têm estoque suficiente
+        // Nova regra: permitir criação mesmo se a matéria-prima NÃO existir.
+        // Portanto, ao verificar viabilidade, IGNORAMOS componentes cuja matéria-prima não exista.
+        // Só retorna inviável quando a matéria-prima EXISTE e o estoque é insuficiente.
         return ficha.componentes.every(c => {
           const mp = mockProdutos.find(p => p.id === c.materiaPrima.id)
-          const estoque = mp?.quantidadeEmEstoque ?? 0
+          // Se a matéria-prima não existir, não bloqueia a criação (considera viável para este componente)
+          if (!mp) return true
+          const estoque = mp.quantidadeEmEstoque ?? 0
           const necessario = c.quantidade * quantidade
           return estoque >= necessario
         })

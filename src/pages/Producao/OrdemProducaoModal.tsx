@@ -6,6 +6,7 @@ import { X, Factory, AlertCircle } from 'lucide-react'
 import { useProducaoStore } from '../../stores/producaoStore'
 import { useNotifications } from '../../stores/uiStore'
 import { cn } from '../../lib/utils'
+import { FullScreenAlert } from '../../components/FullScreenAlert'
 
 const ordemProducaoSchema = z.object({
   fichaTecnicaId: z.string().min(1, 'Selecione uma ficha técnica'),
@@ -26,6 +27,8 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
 }) => {
   const { fichasTecnicas, fetchFichasTecnicas, verificarViabilidade, criarOrdemPendente } = useProducaoStore()
   const { addNotification } = useNotifications()
+  const [showInsufficientAlert, setShowInsufficientAlert] = React.useState(false)
+  const [checking, setChecking] = React.useState(false)
 
   const {
     register,
@@ -54,6 +57,18 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
 
   const fichaSelecionada = fichasTecnicas.find(f => f.id === watchedFichaTecnicaId)
 
+  // Helper para identificar matéria-prima insuficiente entre componentes existentes
+  const getComponenteInsuficiente = (quant: number) => {
+    if (!fichaSelecionada || !quant || quant <= 0) return null
+    return fichaSelecionada.componentes.find(c => {
+      // Se não houver registro/estoque da matéria-prima, pela nova regra NÃO bloqueamos
+      const estoque = c.materiaPrima?.quantidadeEmEstoque
+      if (typeof estoque !== 'number') return false
+      const necessario = c.quantidade * quant
+      return estoque < necessario
+    }) || null
+  }
+
   const onSubmit = async (data: OrdemProducaoFormData) => {
     try {
       // Verificar viabilidade antes de criar a ordem
@@ -66,14 +81,11 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
         return
       }
 
-      const viavel = await verificarViabilidade(fichaSelecionada.produtoAcabado.id, data.quantidade)
-      
-      if (!viavel) {
-        addNotification({
-          type: 'error',
-          title: 'Produção inviável',
-          message: 'Não há estoque suficiente para esta produção.'
-        })
+      // Nova regra de negócio no front: bloquear SOMENTE quando houver insuficiência de estoque
+      // em matérias-primas EXISTENTES. Se a matéria-prima não existir, permitir criação.
+      const componenteInsuficiente = getComponenteInsuficiente(data.quantidade)
+      if (componenteInsuficiente) {
+        setShowInsufficientAlert(true)
         return
       }
 
@@ -99,6 +111,33 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
       })
     }
   }
+
+  // Verificação automática de estoque ao selecionar ficha técnica ou alterar quantidade
+  useEffect(() => {
+    let timer: number | undefined
+    const run = async () => {
+      if (!fichaSelecionada || !watchedQuantidade || watchedQuantidade <= 0) {
+        setShowInsufficientAlert(false)
+        return
+      }
+      // Apenas verifica localmente os componentes com estoque cadastrado,
+      // evitando bloquear quando a matéria-prima não existir (nova regra).
+      setChecking(true)
+      try {
+        const componenteInsuficiente = getComponenteInsuficiente(watchedQuantidade)
+        setShowInsufficientAlert(Boolean(componenteInsuficiente))
+      } finally {
+        setChecking(false)
+      }
+    }
+
+    // Debounce rápido para evitar chamadas em excesso
+    timer = window.setTimeout(run, 300)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedFichaTecnicaId, watchedQuantidade])
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -234,13 +273,32 @@ export const OrdemProducaoModal: React.FC<OrdemProducaoModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={!fichaSelecionada || checking}
             >
               Criar Ordem
             </button>
           </div>
         </form>
       </div>
+      {showInsufficientAlert && (
+        <FullScreenAlert
+          title="Estoque insuficiente para produção"
+          message={(() => {
+            if (!fichaSelecionada || !watchedQuantidade) {
+              return 'Não há estoque suficiente para a produção.'
+            }
+            const componente = getComponenteInsuficiente(watchedQuantidade)
+            const produtoX = fichaSelecionada.produtoAcabado.nome
+            const unidade = fichaSelecionada.produtoAcabado.unidadeMedida
+            const quantidadeZ = watchedQuantidade.toLocaleString('pt-BR')
+            const materiaY = componente?.materiaPrima?.nome ?? 'matéria-prima'
+            return `Para realizar a produção desse produto ${produtoX}, utiliza algumas matérias-primas e uma delas é a matéria-prima ${materiaY} que atualmente está com uma quantidade insuficiente no estoque, impossibilitando a criação de ${quantidadeZ} ${unidade} do produto.`
+          })()}
+          onConfirm={() => setShowInsufficientAlert(false)}
+          confirmText="Ok, estou ciente"
+        />
+      )}
     </div>
   )
 }
